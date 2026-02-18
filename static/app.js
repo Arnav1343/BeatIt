@@ -46,24 +46,61 @@
     let isShuffle = false;
     let isRepeat = false;
     let isDark = localStorage.getItem('ipod-theme') === 'dark';
+    let selectedQuality = 192;
 
-    function applyTheme() {
-        if (isDark) {
-            document.body.setAttribute('data-theme', 'dark');
-            themeIconSun.style.display = 'none';
-            themeIconMoon.style.display = 'block';
-        } else {
-            document.body.removeAttribute('data-theme');
-            themeIconSun.style.display = 'block';
-            themeIconMoon.style.display = 'none';
-        }
-        localStorage.setItem('ipod-theme', isDark ? 'dark' : 'light');
+    // ─── Theme System ───────────────────────────────────────────────
+    const themes = [
+        { id: 'light', name: 'Light', dark: false },
+        { id: 'dark', name: 'Dark', dark: true },
+        { id: 'cyber', name: 'Cyber Violet', dark: true },
+        { id: 'neon', name: 'Neon Emerald', dark: true },
+        { id: 'molten', name: 'Molten', dark: true },
+        { id: 'sand', name: 'Sand', dark: false },
+        { id: 'ocean', name: 'Ocean', dark: false },
+        { id: 'rose', name: 'Rosé', dark: false },
+    ];
+    let currentThemeIndex = 0;
+    const savedTheme = localStorage.getItem('ipod-theme-id');
+    if (savedTheme) {
+        const idx = themes.findIndex(t => t.id === savedTheme);
+        if (idx >= 0) currentThemeIndex = idx;
+    } else if (isDark) {
+        currentThemeIndex = 1;
     }
 
+    function applyTheme() {
+        const t = themes[currentThemeIndex];
+        if (t.id === 'light') {
+            document.body.removeAttribute('data-theme');
+        } else {
+            document.body.setAttribute('data-theme', t.id);
+        }
+        // Update sun/moon icon based on whether theme is dark
+        themeIconSun.style.display = t.dark ? 'none' : 'block';
+        themeIconMoon.style.display = t.dark ? 'block' : 'none';
+        localStorage.setItem('ipod-theme-id', t.id);
+    }
+
+    // Light/dark toggle — swaps between light and the last-used dark theme (or vice versa)
     themeToggle.addEventListener('click', () => {
-        isDark = !isDark;
+        const current = themes[currentThemeIndex];
+        if (current.dark) {
+            // Switch to light
+            currentThemeIndex = 0;
+        } else {
+            // Switch to dark (default)
+            currentThemeIndex = 1;
+        }
         applyTheme();
-        showToast(isDark ? 'Dark mode' : 'Light mode');
+        showToast(themes[currentThemeIndex].name);
+    });
+
+    // Theme cycle button — rotates through all 8 themes
+    const themeCycleBtn = $('#themeCycle');
+    themeCycleBtn.addEventListener('click', () => {
+        currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+        applyTheme();
+        showToast(themes[currentThemeIndex].name);
     });
 
     function showView(name, pushHistory = true) {
@@ -137,6 +174,7 @@
         searchResult.classList.remove('hidden');
         searchStatus.textContent = '✓ Found';
         downloadBtn.disabled = false;
+        updateQualitySizes(item.duration || 0);
     }
 
     searchInput.addEventListener('input', () => {
@@ -151,7 +189,7 @@
                 const items = await r.json();
                 if (searchInput.value.trim() === q) renderSuggestions(items);
             } catch { hideSuggestions(); }
-        }, 400);
+        }, 250);
     });
 
     suggestionsDropdown.addEventListener('click', (e) => {
@@ -194,17 +232,41 @@
             resultMeta.textContent = (d.uploader || d.artist || '') + '  ·  ' + formatDuration(dur);
             searchResult.classList.remove('hidden');
             searchStatus.textContent = '✓ Found'; downloadBtn.disabled = false;
+            updateQualitySizes(d.duration || lastSearchResult.duration || 0);
         } catch {
             searchStatus.textContent = 'Search failed'; searchStatus.className = 'search-status error-text'; showToast('Failed', 'error');
         } finally { hideLoading(); }
     }
+
+    // ─── Quality Selector ───────────────────────────────────────────
+    function estimateSize(durationSec, kbps) {
+        if (!durationSec) return '—';
+        const bytes = (kbps * 1000 / 8) * durationSec;
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function updateQualitySizes(duration) {
+        $$('.quality-opt').forEach(btn => {
+            const kbps = parseInt(btn.dataset.quality);
+            btn.querySelector('.q-size').textContent = estimateSize(duration, kbps);
+        });
+    }
+
+    $$('.quality-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            $$('.quality-opt').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedQuality = parseInt(btn.dataset.quality);
+        });
+    });
 
     async function doDownload() {
         if (!lastSearchResult) return;
         downloadBtn.disabled = true; downloadStatus.textContent = 'Starting...'; downloadStatus.className = 'download-status';
         downloadProgressWrap.classList.remove('hidden'); downloadProgressFill.style.width = '0%'; downloadProgressText.textContent = '0%';
         try {
-            const r = await fetch('/api/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: lastSearchResult.url, title: lastSearchResult.title }) });
+            const r = await fetch('/api/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: lastSearchResult.url, title: lastSearchResult.title, quality: selectedQuality }) });
             const d = await r.json();
             if (d.error) { downloadStatus.textContent = d.error; downloadStatus.className = 'download-status error'; downloadProgressWrap.classList.add('hidden'); downloadBtn.disabled = false; return; }
             pollProgress(d.task_id);
@@ -366,7 +428,7 @@
             case 'Escape': case 'Backspace': if (document.activeElement !== searchInput) { e.preventDefault(); goBack(); } break;
             case ' ': if (document.activeElement !== searchInput) { e.preventDefault(); togglePlay(); } break;
             case 'Delete': if (currentView === 'library' && library[libraryIndex]) { e.preventDefault(); deleteSong(library[libraryIndex].filename); } break;
-            case 't': case 'T': if (document.activeElement !== searchInput) { isDark = !isDark; applyTheme(); showToast(isDark ? 'Dark mode' : 'Light mode'); } break;
+            case 't': case 'T': if (document.activeElement !== searchInput) { currentThemeIndex = (currentThemeIndex + 1) % themes.length; applyTheme(); showToast(themes[currentThemeIndex].name); } break;
         }
     });
 

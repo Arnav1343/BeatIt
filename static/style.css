@@ -41,36 +41,267 @@
   --danger: #ef5350;
 }
 
+/* Dark */
 [data-theme="dark"] {
-  --bg: #0c0e14;
-  --device-bg: #121821;
-  --device-border: #0b0f14;
-  --device-shadow: rgba(0, 0, 0, 0.45);
-  --screen-bg: linear-gradient(180deg, #1a2230 0%, #0e131b 100%);
-  --screen-shadow: rgba(0, 0, 0, 0.3);
-  --header-color: #a5afbd;
-  --text-primary: #ffffff;
-  --text-secondary: #b7c2d1;
-  --text-muted: #6b7a8d;
-  --artwork-bg: #1e2838;
-  --icon-color: #7788a0;
-  --transport-icon: #7788a0;
-  --bar-bg: #2b3340;
-  --wheel-bg: radial-gradient(circle at center, #1a2230 0%, #0f1621 70%);
-  --wheel-shadow-outer: rgba(0, 0, 0, 0.15);
-  --wheel-inner: rgba(255, 255, 255, 0.03);
-  --center-bg: radial-gradient(circle at 40% 35%, #242e3c, #1a2230);
-  --center-shadow: rgba(0, 0, 0, 0.2);
-  --center-inner: rgba(255, 255, 255, 0.04);
-  --wheel-label-color: #7788a0;
-  --divider: rgba(255, 255, 255, 0.04);
-  --input-bg: rgba(255, 255, 255, 0.06);
-  --input-border: rgba(255, 255, 255, 0.08);
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(255, 255, 255, 0.06);
+  --bg: #16181d;
+  --device-bg: #1e2128;
+  --device-border: #2a2d36;
+  --device-shadow: rgba(0, 0, 0, 0.35);
+  --screen-bg: linear-gradient(180deg, #252830 0%, #1a1d24 100%);
+  --screen-shadow: rgba(0, 0, 0, 0.2);
+  --header-color: #9ca3b0;
+  --text-primary: #eaedf2;
+  --text-secondary: #a8b0c0;
+  --text-muted: #5e6678;
+  --artwork-bg: #282c36;
+  --icon-color: #7a84a0;
+  --transport-icon: #7a84a0;
+  --bar-bg: #30343e;
+  --wheel-bg: radial-gradient(circle at center, #23262e 0%, #1c1f26 70%);
+  --wheel-shadow-outer: rgba(0, 0, 0, 0.12);
+  --wheel-inner: rgba(255, 255, 255, 0.04);
+  --center-bg: radial-gradient(circle at 40% 35%, #2e3240, #252830);
+  --center-shadow: rgba(0, 0, 0, 0.15);
+  --center-inner: rgba(255, 255, 255, 0.05);
+  --wheel-label-color: #7a84a0;
+  --divider: rgba(255, 255, 255, 0.06);
+  --input-bg: rgba(255, 255, 255, 0.07);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.07);
   --badge-text: #fff;
-  --toggle-bg: rgba(255, 255, 255, 0.06);
-  --toggle-color: #a5afbd;
+  --toggle-bg: rgba(255, 255, 255, 0.07);
+  --toggle-color: #9ca3b0;
+  --accent: #6c8cff;
+  --accent-fill: linear-gradient(90deg, #6c8cff, #a78bfa);
+  --success: #5ee0a0;
+  --danger: #f87171;
+}
+
+/* ═══ DARK FUTURISTIC THEMES ═══ */
+
+/* Cyber Violet — deep purple + electric cyan */
+[data-theme="cyber"] {
+  --bg: #0a0a1a;
+  --device-bg: #0f0f2a;
+  --device-border: #1a1a3e;
+  --device-shadow: rgba(138, 43, 226, 0.2);
+  --screen-bg: linear-gradient(180deg, #12122e 0%, #08081a 100%);
+  --screen-shadow: rgba(0, 0, 0, 0.4);
+  --text-primary: #e8e0ff;
+  --text-secondary: #b8a5e0;
+  --text-muted: #6a5a8e;
+  --artwork-bg: #1a1a3e;
+  --icon-color: #8a6abf;
+  --transport-icon: #8a6abf;
+  --bar-bg: #1e1e42;
+  --wheel-bg: radial-gradient(circle at center, #15153a 0%, #0c0c24 70%);
+  --wheel-shadow-outer: rgba(138, 43, 226, 0.1);
+  --wheel-inner: rgba(138, 43, 226, 0.04);
+  --center-bg: radial-gradient(circle at 40% 35%, #1e1e48, #12122e);
+  --center-shadow: rgba(0, 0, 0, 0.3);
+  --center-inner: rgba(138, 43, 226, 0.06);
+  --wheel-label-color: #8a6abf;
+  --divider: rgba(138, 43, 226, 0.08);
+  --input-bg: rgba(138, 43, 226, 0.08);
+  --input-border: rgba(138, 43, 226, 0.15);
+  --card-bg: rgba(138, 43, 226, 0.04);
+  --card-border: rgba(138, 43, 226, 0.1);
+  --badge-text: #fff;
+  --toggle-bg: rgba(138, 43, 226, 0.1);
+  --toggle-color: #b8a5e0;
+  --accent: #00e5ff;
+  --accent-fill: linear-gradient(90deg, #00e5ff, #7c4dff);
+  --success: #00e676;
+  --danger: #ff1744;
+  --header-color: #8a6abf;
+}
+
+/* Neon Emerald — dark charcoal + neon green */
+[data-theme="neon"] {
+  --bg: #050a08;
+  --device-bg: #0a1510;
+  --device-border: #0d2018;
+  --device-shadow: rgba(0, 255, 136, 0.12);
+  --screen-bg: linear-gradient(180deg, #0d1f18 0%, #060e0a 100%);
+  --screen-shadow: rgba(0, 0, 0, 0.4);
+  --text-primary: #e0fff0;
+  --text-secondary: #8fd4b0;
+  --text-muted: #4a7a62;
+  --artwork-bg: #0d2018;
+  --icon-color: #5ab888;
+  --transport-icon: #5ab888;
+  --bar-bg: #122d20;
+  --wheel-bg: radial-gradient(circle at center, #0f2418 0%, #081510 70%);
+  --wheel-shadow-outer: rgba(0, 255, 136, 0.06);
+  --wheel-inner: rgba(0, 255, 136, 0.03);
+  --center-bg: radial-gradient(circle at 40% 35%, #143828, #0d2018);
+  --center-shadow: rgba(0, 0, 0, 0.3);
+  --center-inner: rgba(0, 255, 136, 0.05);
+  --wheel-label-color: #5ab888;
+  --divider: rgba(0, 255, 136, 0.06);
+  --input-bg: rgba(0, 255, 136, 0.06);
+  --input-border: rgba(0, 255, 136, 0.12);
+  --card-bg: rgba(0, 255, 136, 0.03);
+  --card-border: rgba(0, 255, 136, 0.08);
+  --badge-text: #fff;
+  --toggle-bg: rgba(0, 255, 136, 0.08);
+  --toggle-color: #8fd4b0;
+  --accent: #00ff88;
+  --accent-fill: linear-gradient(90deg, #00ff88, #00cc6a);
+  --success: #00ff88;
+  --danger: #ff4444;
+  --header-color: #5ab888;
+}
+
+/* Molten — obsidian black + molten orange-red */
+[data-theme="molten"] {
+  --bg: #0a0604;
+  --device-bg: #140c08;
+  --device-border: #2a1508;
+  --device-shadow: rgba(255, 87, 34, 0.15);
+  --screen-bg: linear-gradient(180deg, #1a0e08 0%, #0a0604 100%);
+  --screen-shadow: rgba(0, 0, 0, 0.4);
+  --text-primary: #fff0e0;
+  --text-secondary: #d4a87a;
+  --text-muted: #7a5a3a;
+  --artwork-bg: #2a1508;
+  --icon-color: #c07040;
+  --transport-icon: #c07040;
+  --bar-bg: #2d1810;
+  --wheel-bg: radial-gradient(circle at center, #1a0e08 0%, #100804 70%);
+  --wheel-shadow-outer: rgba(255, 87, 34, 0.08);
+  --wheel-inner: rgba(255, 87, 34, 0.03);
+  --center-bg: radial-gradient(circle at 40% 35%, #241408, #1a0e08);
+  --center-shadow: rgba(0, 0, 0, 0.3);
+  --center-inner: rgba(255, 87, 34, 0.05);
+  --wheel-label-color: #c07040;
+  --divider: rgba(255, 87, 34, 0.06);
+  --input-bg: rgba(255, 87, 34, 0.06);
+  --input-border: rgba(255, 87, 34, 0.12);
+  --card-bg: rgba(255, 87, 34, 0.03);
+  --card-border: rgba(255, 87, 34, 0.08);
+  --badge-text: #fff;
+  --toggle-bg: rgba(255, 87, 34, 0.08);
+  --toggle-color: #d4a87a;
+  --accent: #ff5722;
+  --accent-fill: linear-gradient(90deg, #ff5722, #ff9100);
+  --success: #ffab00;
+  --danger: #ff1744;
+  --header-color: #c07040;
+}
+
+/* ═══ MINIMALIST THEMES ═══ */
+
+/* Sand — warm cream + terracotta */
+[data-theme="sand"] {
+  --bg: #f5f0e8;
+  --device-bg: #faf6ee;
+  --device-border: #c8b8a0;
+  --device-shadow: rgba(120, 90, 50, 0.12);
+  --screen-bg: #fdfaf4;
+  --screen-shadow: rgba(120, 90, 50, 0.06);
+  --text-primary: #3a2e22;
+  --text-secondary: #7a6a55;
+  --text-muted: #b0a08a;
+  --artwork-bg: #efe8da;
+  --icon-color: #8a7a65;
+  --transport-icon: #b0a08a;
+  --bar-bg: #e8e0d0;
+  --wheel-bg: radial-gradient(circle at center, #f0e8d8 0%, #e5dcc8 100%);
+  --wheel-shadow-outer: rgba(120, 90, 50, 0.06);
+  --wheel-inner: rgba(255, 255, 255, 0.7);
+  --center-bg: radial-gradient(circle at 40% 35%, #faf6ee, #efe8da);
+  --center-shadow: rgba(120, 90, 50, 0.08);
+  --center-inner: rgba(255, 255, 255, 0.8);
+  --wheel-label-color: #8a7a65;
+  --divider: rgba(120, 90, 50, 0.06);
+  --input-bg: rgba(120, 90, 50, 0.04);
+  --input-border: rgba(120, 90, 50, 0.1);
+  --card-bg: rgba(120, 90, 50, 0.02);
+  --card-border: rgba(120, 90, 50, 0.06);
+  --badge-text: #fff;
+  --toggle-bg: rgba(120, 90, 50, 0.06);
+  --toggle-color: #8a7a65;
+  --accent: #c45e3a;
+  --accent-fill: linear-gradient(90deg, #c45e3a, #d4784e);
+  --success: #6a9a5a;
+  --danger: #c44a3a;
+  --header-color: #8a7a65;
+}
+
+/* Ocean — soft blue-grey + deep teal */
+[data-theme="ocean"] {
+  --bg: #edf2f7;
+  --device-bg: #f5f8fb;
+  --device-border: #a0b8d0;
+  --device-shadow: rgba(50, 80, 120, 0.12);
+  --screen-bg: #f8fbfd;
+  --screen-shadow: rgba(50, 80, 120, 0.06);
+  --text-primary: #1a2a3a;
+  --text-secondary: #4a6a8a;
+  --text-muted: #8aa0b8;
+  --artwork-bg: #dce8f2;
+  --icon-color: #5a7a98;
+  --transport-icon: #8aa0b8;
+  --bar-bg: #d0e0ee;
+  --wheel-bg: radial-gradient(circle at center, #e5eef5 0%, #d5e2ee 100%);
+  --wheel-shadow-outer: rgba(50, 80, 120, 0.06);
+  --wheel-inner: rgba(255, 255, 255, 0.7);
+  --center-bg: radial-gradient(circle at 40% 35%, #f0f5fa, #e0eaf4);
+  --center-shadow: rgba(50, 80, 120, 0.08);
+  --center-inner: rgba(255, 255, 255, 0.8);
+  --wheel-label-color: #5a7a98;
+  --divider: rgba(50, 80, 120, 0.06);
+  --input-bg: rgba(50, 80, 120, 0.04);
+  --input-border: rgba(50, 80, 120, 0.1);
+  --card-bg: rgba(50, 80, 120, 0.02);
+  --card-border: rgba(50, 80, 120, 0.06);
+  --badge-text: #fff;
+  --toggle-bg: rgba(50, 80, 120, 0.06);
+  --toggle-color: #5a7a98;
+  --accent: #0d8a8a;
+  --accent-fill: linear-gradient(90deg, #0d8a8a, #14a0a0);
+  --success: #2e8b57;
+  --danger: #dc4a55;
+  --header-color: #5a7a98;
+}
+
+/* Rose — blush pink + muted mauve */
+[data-theme="rose"] {
+  --bg: #f8f0f2;
+  --device-bg: #fcf6f8;
+  --device-border: #d4a8b8;
+  --device-shadow: rgba(160, 80, 110, 0.1);
+  --screen-bg: #fdf9fa;
+  --screen-shadow: rgba(160, 80, 110, 0.06);
+  --text-primary: #2e1a22;
+  --text-secondary: #7a4a5e;
+  --text-muted: #b88a9e;
+  --artwork-bg: #f0dce4;
+  --icon-color: #9a6a80;
+  --transport-icon: #b88a9e;
+  --bar-bg: #ecd0da;
+  --wheel-bg: radial-gradient(circle at center, #f2e0e8 0%, #e8d0da 100%);
+  --wheel-shadow-outer: rgba(160, 80, 110, 0.06);
+  --wheel-inner: rgba(255, 255, 255, 0.7);
+  --center-bg: radial-gradient(circle at 40% 35%, #faf2f6, #f0dce4);
+  --center-shadow: rgba(160, 80, 110, 0.08);
+  --center-inner: rgba(255, 255, 255, 0.8);
+  --wheel-label-color: #9a6a80;
+  --divider: rgba(160, 80, 110, 0.06);
+  --input-bg: rgba(160, 80, 110, 0.04);
+  --input-border: rgba(160, 80, 110, 0.1);
+  --card-bg: rgba(160, 80, 110, 0.02);
+  --card-border: rgba(160, 80, 110, 0.06);
+  --badge-text: #fff;
+  --toggle-bg: rgba(160, 80, 110, 0.06);
+  --toggle-color: #9a6a80;
+  --accent: #c44a7a;
+  --accent-fill: linear-gradient(90deg, #c44a7a, #d06a90);
+  --success: #6a9a6a;
+  --danger: #c44a4a;
+  --header-color: #9a6a80;
 }
 
 body {
@@ -94,11 +325,18 @@ body {
   position: relative
 }
 
-/* Theme toggle */
-.theme-toggle {
+/* Theme controls */
+.theme-controls {
   position: fixed;
   top: 24px;
   right: 24px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.theme-toggle,
+.theme-cycle {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -109,25 +347,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
   transition: all 0.3s ease;
   backdrop-filter: blur(8px);
   -webkit-tap-highlight-color: transparent
 }
 
-.theme-toggle:hover {
+.theme-toggle:hover,
+.theme-cycle:hover {
   transform: scale(1.1);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1)
 }
 
-.theme-toggle:active {
+.theme-toggle:active,
+.theme-cycle:active {
   transform: scale(0.95)
 }
 
 /* Device */
 .device {
-  width: 350px;
-  height: 650px;
+  width: 370px;
+  height: 700px;
   border-radius: 40px;
   background: var(--device-bg);
   border: 1.5px solid var(--device-border);
@@ -143,8 +382,8 @@ body {
 
 /* Screen */
 .screen {
-  width: 85%;
-  height: 260px;
+  width: 88%;
+  height: 300px;
   border-radius: 20px;
   background: var(--screen-bg);
   overflow: hidden;
@@ -654,10 +893,7 @@ body {
 }
 
 .search-result {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 10px;
+  padding: 10px 0;
   margin-top: 4px
 }
 
@@ -679,6 +915,69 @@ body {
   font-size: 10px;
   color: var(--text-muted);
   margin-bottom: 8px
+}
+
+/* Quality Selector */
+.quality-selector {
+  margin: 8px 0 6px;
+}
+
+.quality-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.quality-options {
+  display: flex;
+  gap: 5px;
+}
+
+.quality-opt {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quality-opt:hover {
+  border-color: var(--accent);
+}
+
+.quality-opt.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.q-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.quality-opt.active .q-name {
+  color: #fff;
+}
+
+.q-detail {
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.quality-opt.active .q-detail {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .download-btn {

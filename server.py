@@ -35,6 +35,8 @@ def index():
 
 # ─── API ──────────────────────────────────────────────────────────────
 
+_scraper = SongScraper(quality=320)  # Reuse across requests
+
 @app.route("/api/suggestions", methods=["POST"])
 def api_suggestions():
     """Return multiple search results. Body: { "query": "song name" }"""
@@ -44,8 +46,7 @@ def api_suggestions():
         return jsonify([])
 
     try:
-        scraper = SongScraper(quality=320)
-        results = scraper.search_multi(query, limit=5)
+        results = _scraper.search_multi(query, limit=5)
         return jsonify(results)
     except Exception as e:
         return jsonify([])
@@ -77,6 +78,9 @@ def api_download():
     data = request.get_json(force=True)
     url = data.get("url", "").strip()
     title = data.get("title", "Unknown")
+    quality = int(data.get("quality", 192))
+    if quality not in (128, 192, 320):
+        quality = 192
 
     if not url:
         return jsonify({"error": "No URL provided"}), 400
@@ -103,7 +107,7 @@ def api_download():
 
     def _do_download():
         try:
-            scraper = SongScraper(quality=320)
+            scraper = SongScraper(quality=quality)
             mp3_path = scraper.download(
                 url=url,
                 output_dir=DOWNLOADS_DIR,

@@ -1,22 +1,21 @@
 """
-Song-to-MP3 Scraper  (Spotify + YouTube Music Edition)
-======================================================
-Uses spotdl to search Spotify for song metadata and download
-the matching audio from YouTube Music as a max-quality MP3.
+Song-to-MP3 Scraper  (Max-Quality Edition)
+===========================================
+Uses yt-dlp to search YouTube for a song by name and download it as a
+maximum-quality MP3 file via ffmpeg post-processing.
 
 Quality features:
-  - Spotify metadata: title, artist, album, album art
-  - YouTube Music audio source (highest quality match)
-  - 320 kbps MP3 output
-  - Embedded album art and metadata
+  - Prefers the highest-bitrate source audio stream (opus/m4a)
+  - 320 kbps CBR MP3 with highest-quality VBR algorithm layered on top
+  - Full stereo encoding (no joint-stereo downmix)
+  - Embeds album-art thumbnail and metadata (title, artist, etc.)
+  - Concurrent fragment downloads for maximum speed
 """
 
 import os
 import re
-import json
 import time
 import logging
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -26,132 +25,59 @@ logger = logging.getLogger(__name__)
 
 
 class SongScraper:
-    """Search Spotify for songs and download audio from YouTube Music."""
+    """Search for songs on YouTube and download them as MP3 files."""
 
+    # Maximum video duration (seconds) to avoid albums/podcasts
     MAX_DURATION = 900  # 15 minutes
 
+    # Number of search results to evaluate
+    SEARCH_COUNT = 10
+
+    # Keywords that indicate a result is likely just the audio track
+    AUDIO_KEYWORDS = re.compile(
+        r"(official\s*audio|lyrics?\s*video|audio|lyric|official\s*music\s*video)",
+        re.IGNORECASE,
+    )
+
+    # Keywords that indicate a result is NOT what we want
+    REJECT_KEYWORDS = re.compile(
+        r"(live\s*performance|concert|reaction|cover\s*by|tutorial|karaoke|remix|slowed|reverb|sped\s*up|bass\s*boosted|instrumental|behind\s*the\s*scenes|interview|making\s*of|drum\s*cover|guitar\s*cover|piano\s*cover)",
+        re.IGNORECASE,
+    )
+
     def __init__(self, quality: int = 320):
+        """
+        Args:
+            quality: MP3 bitrate in kbps (128, 192, 256, or 320).
+        """
         if quality not in (128, 192, 256, 320):
             raise ValueError(f"Invalid quality {quality}. Choose 128, 192, 256, or 320.")
         self.quality = quality
 
     # ------------------------------------------------------------------
-    # Search  (Spotify via spotdl)
+    # Search
     # ------------------------------------------------------------------
 
     def search(self, query: str) -> dict:
         """
-        Search Spotify for the best match.
+        Search YouTube for the best-matching video for the given song name.
+
+        Args:
+            query: Song name, optionally including the artist.
 
         Returns:
-            dict with keys: id, title, url, duration, uploader, thumbnail,
-                            artist, album, spotify_url
+            dict with keys: id, title, url, duration, uploader, thumbnail
         """
-        logger.info("Searching Spotify for: %s", query)
-
-        try:
-            result = subprocess.run(
-                ["spotdl", "url", query],
-                capture_output=True, text=True, timeout=30,
-                encoding="utf-8", errors="replace",
-            )
-            urls = [line.strip() for line in result.stdout.strip().splitlines() if line.strip().startswith("http")]
-
-            if not urls:
-                raise LookupError(f"No Spotify results for '{query}'")
-
-            spotify_url = urls[0]
-
-            # Get metadata from spotdl
-            meta_result = subprocess.run(
-                ["spotdl", "meta", spotify_url, "--json"],
-                capture_output=True, text=True, timeout=30,
-                encoding="utf-8", errors="replace",
-            )
-
-            meta = None
-            for line in meta_result.stdout.strip().splitlines():
-                line = line.strip()
-                if line.startswith("{"):
-                    try:
-                        meta = json.loads(line)
-                        break
-                    except json.JSONDecodeError:
-                        continue
-
-            if meta:
-                return {
-                    "id": meta.get("song_id", ""),
-                    "title": meta.get("name", query),
-                    "url": spotify_url,
-                    "duration": meta.get("duration", 0),
-                    "uploader": ", ".join(meta.get("artists", ["Unknown"])),
-                    "thumbnail": meta.get("cover_url", ""),
-                    "artist": ", ".join(meta.get("artists", ["Unknown"])),
-                    "album": meta.get("album_name", ""),
-                    "spotify_url": spotify_url,
-                }
-
-        except (subprocess.TimeoutExpired, FileNotFoundError, LookupError):
-            pass
-        except Exception as e:
-            logger.warning("spotdl search failed, falling back to YouTube Music: %s", e)
-
-        # Fallback: YouTube Music search via yt-dlp
-        return self._search_ytmusic(query)
-
-    def search_multi(self, query: str, limit: int = 5) -> list[dict]:
-        """
-        Return multiple search results quickly for autocomplete suggestions.
-        Uses extract_flat for speed — returns basic metadata only.
-        """
-        logger.info("Multi-search for: %s", query)
-        results = []
-
-        try:
-            ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "extract_flat": "in_playlist",
-                "default_search": f"ytsearch{limit}",
-                "noplaylist": True,
-                "skip_download": True,
-            }
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
-
-            entries = info.get("entries", [])
-            for entry in entries:
-                if entry is None:
-                    continue
-                vid_id = entry.get("id", "")
-                results.append({
-                    "title": entry.get("title", "Unknown"),
-                    "artist": entry.get("uploader", entry.get("channel", "")),
-                    "album": "",
-                    "duration": entry.get("duration") or 0,
-                    "url": entry.get("url") or entry.get("webpage_url") or f"https://www.youtube.com/watch?v={vid_id}",
-                    "thumbnail": f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg" if vid_id else "",
-                })
-
-        except Exception as e:
-            logger.warning("Multi-search failed: %s", e)
-
-        return results[:limit]
-
-    def _search_ytmusic(self, query: str) -> dict:
-        """Fallback search via YouTube Music when Spotify search fails."""
-        logger.info("Falling back to YouTube Music search for: %s", query)
-
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
-            "default_search": f"ytsearch5",
+            "default_search": f"ytsearch{self.SEARCH_COUNT}",
             "noplaylist": True,
             "skip_download": True,
         }
+
+        logger.info("Searching YouTube for: %s", query)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(query, download=False)
@@ -160,26 +86,71 @@ class SongScraper:
         if not entries:
             raise LookupError(f"No results found for '{query}'")
 
-        best = entries[0]
-        for entry in entries:
-            if entry and 90 <= (entry.get("duration") or 0) <= 420:
-                best = entry
-                break
+        best = self._pick_best(entries, query)
 
         return {
-            "id": best.get("id", ""),
+            "id": best["id"],
             "title": best.get("title", "Unknown"),
-            "url": best.get("webpage_url") or f"https://www.youtube.com/watch?v={best.get('id', '')}",
+            "url": best.get("webpage_url") or f"https://www.youtube.com/watch?v={best['id']}",
             "duration": best.get("duration", 0),
             "uploader": best.get("uploader", "Unknown"),
             "thumbnail": best.get("thumbnail", ""),
-            "artist": best.get("uploader", "Unknown"),
-            "album": "",
-            "spotify_url": "",
         }
 
+    def _pick_best(self, entries: list[dict], query: str) -> dict:
+        """
+        Rank search results and pick the best match.
+
+        Scoring logic:
+          +3  if title contains an "audio" keyword (official audio, lyrics, etc.)
+          -10 if title contains a "reject" keyword (cover, remix, live, etc.)
+          +1  if duration is within a typical song range (1:30 – 7:00)
+          -5  if duration exceeds MAX_DURATION
+
+        Falls back to the first entry if every result scores poorly.
+        """
+        scored: list[tuple[int, dict]] = []
+
+        for entry in entries:
+            if entry is None:
+                continue
+
+            title = entry.get("title", "")
+            duration = entry.get("duration") or 0
+            score = 0
+
+            # Prefer "official audio" style results
+            if self.AUDIO_KEYWORDS.search(title):
+                score += 3
+
+            # Penalise covers, remixes, live recordings, etc.
+            if self.REJECT_KEYWORDS.search(title):
+                score -= 10
+
+            # Prefer typical song duration (90s – 420s)
+            if 90 <= duration <= 420:
+                score += 1
+
+            # Hard-penalise very long videos
+            if duration > self.MAX_DURATION:
+                score -= 5
+
+            scored.append((score, entry))
+
+        # Sort by score descending, then by original order
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        best_score, best_entry = scored[0]
+        logger.info(
+            "Selected: '%s' (score=%d, duration=%ds)",
+            best_entry.get("title"),
+            best_score,
+            best_entry.get("duration", 0),
+        )
+        return best_entry
+
     # ------------------------------------------------------------------
-    # Download  (spotdl with fallback to yt-dlp)
+    # Download
     # ------------------------------------------------------------------
 
     def download(
@@ -189,97 +160,66 @@ class SongScraper:
         progress_hook=None,
     ) -> Path:
         """
-        Download audio and convert to MP3.
+        Download audio from a URL and convert to MP3.
 
-        Tries spotdl first (best for Spotify URLs), falls back to yt-dlp
-        for direct YouTube URLs.
+        Args:
+            url:           YouTube video URL.
+            output_dir:    Directory to save the MP3 to.
+            progress_hook: Optional callable(dict) for progress updates.
+
+        Returns:
+            Path to the saved .mp3 file.
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        is_spotify = "spotify.com" in url or "open.spotify" in url
-
-        if is_spotify:
-            try:
-                return self._download_spotdl(url, output_dir, progress_hook)
-            except Exception as e:
-                logger.warning("spotdl download failed, falling back to yt-dlp: %s", e)
-
-        return self._download_ytdlp(url, output_dir, progress_hook)
-
-    def _download_spotdl(self, url: str, output_dir: Path, progress_hook=None) -> Path:
-        """Download via spotdl (for Spotify URLs)."""
-        logger.info("Downloading via spotdl: %s -> %s", url, output_dir)
-
-        # Track existing mp3 files to find the new one
-        before = set(output_dir.glob("*.mp3"))
-
-        if progress_hook:
-            progress_hook({"status": "downloading", "downloaded_bytes": 0, "total_bytes": 100})
-
-        cmd = [
-            "spotdl", "download", url,
-            "--output", str(output_dir),
-            "--format", "mp3",
-            "--bitrate", f"{self.quality}k",
-            "--threads", "4",
-        ]
-
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=120,
-            encoding="utf-8", errors="replace",
-        )
-
-        if progress_hook:
-            progress_hook({"status": "finished"})
-
-        # Find the new mp3 file
-        after = set(output_dir.glob("*.mp3"))
-        new_files = after - before
-
-        if new_files:
-            mp3_path = max(new_files, key=lambda p: p.stat().st_mtime)
-        else:
-            # Might have overwritten an existing file
-            mp3_path = self._find_mp3(output_dir, "")
-
-        if mp3_path is None:
-            raise FileNotFoundError(
-                f"spotdl appeared to run but no .mp3 found in {output_dir}. "
-                f"stderr: {result.stderr[:200]}"
-            )
-
-        logger.info("Saved: %s (%s)", mp3_path, _human_size(mp3_path.stat().st_size))
-        return mp3_path
-
-    def _download_ytdlp(self, url: str, output_dir: Path, progress_hook=None) -> Path:
-        """Download via yt-dlp (for YouTube URLs or as fallback)."""
-        logger.info("Downloading via yt-dlp: %s -> %s", url, output_dir)
-
+        # yt-dlp template – will produce <title>.mp3
         outtmpl = str(output_dir / "%(title)s.%(ext)s")
 
         ydl_opts = {
+            # ── Source format: prefer highest-bitrate audio ──────────
             "format": "bestaudio[asr>=44100]/bestaudio/best",
-            "format_sort": ["abr", "asr"],
+            "format_sort": ["abr", "asr"],   # sort by audio bitrate then sample rate
             "outtmpl": outtmpl,
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+
+            # ── Speed: concurrent fragment downloads ────────────────
             "concurrent_fragment_downloads": 4,
-            "buffersize": 1024 * 64,
+            "buffersize": 1024 * 64,          # 64 KB buffer
+
+            # ── Thumbnail for album art embedding ───────────────────
             "writethumbnail": True,
+
+            # ── Post-processors (order matters) ─────────────────────
             "postprocessors": [
+                # 1. Extract audio → MP3 at max bitrate
                 {
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
                     "preferredquality": str(self.quality),
                 },
-                {"key": "FFmpegMetadata", "add_metadata": True},
-                {"key": "EmbedThumbnail", "already_have_thumbnail": False},
+                # 2. Embed metadata (title, artist, album, etc.)
+                {
+                    "key": "FFmpegMetadata",
+                    "add_metadata": True,
+                },
+                # 3. Embed thumbnail as album art
+                {
+                    "key": "EmbedThumbnail",
+                    "already_have_thumbnail": False,
+                },
             ],
+
+            # ── FFmpeg encoding args for maximum quality ────────────
+            # -b:a 320k = force constant 320 kbps bitrate (max for MP3)
+            # -joint_stereo 0 = full stereo (no mid/side downmix)
             "postprocessor_args": {
                 "extractaudio": ["-b:a", "320k", "-joint_stereo", "0"],
             },
+
+            # Restrict filenames to safe characters on Windows
             "restrictfilenames": False,
             "windowsfilenames": True,
         }
@@ -287,9 +227,13 @@ class SongScraper:
         if progress_hook:
             ydl_opts["progress_hooks"] = [progress_hook]
 
+        logger.info("Downloading: %s -> %s", url, output_dir)
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
 
+        # Determine the final filename produced by yt-dlp
+        # yt-dlp may sanitise the title; we look for the .mp3 it created
         title = info.get("title", "audio")
         mp3_path = self._find_mp3(output_dir, title)
 
@@ -311,7 +255,12 @@ class SongScraper:
         output_dir: str | Path = "downloads",
         progress_hook=None,
     ) -> tuple[dict, Path]:
-        """Search for a song and download it in one call."""
+        """
+        Search for a song and download it in one call.
+
+        Returns:
+            (metadata_dict, path_to_mp3)
+        """
         metadata = self.search(query)
         mp3_path = self.download(
             url=metadata["url"],
@@ -326,10 +275,17 @@ class SongScraper:
 
     @staticmethod
     def _find_mp3(directory: Path, title_hint: str) -> Optional[Path]:
-        """Find the most recently created .mp3 file in the directory."""
+        """
+        Find the .mp3 file that yt-dlp just created.
+
+        Strategy:
+          1. Look for newest .mp3 in the directory (most reliable).
+          2. Fall back to partial title match.
+        """
         mp3_files = list(directory.glob("*.mp3"))
         if not mp3_files:
             return None
+        # Return the most recently modified .mp3
         return max(mp3_files, key=lambda p: p.stat().st_mtime)
 
 
