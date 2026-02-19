@@ -5,16 +5,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>iPod Music Player</title>
-  <meta name="description" content="iPod Classic music player with click wheel">
+  <meta name="description" content="Pixel-accurate iPod Classic with light/dark theme toggle">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
   <div class="canvas">
-    <!-- Theme control — single button cycles all themes -->
+    <!-- Theme control — single button -->
     <div class="theme-controls">
       <button class="theme-cycle" id="themeCycle" title="Change theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <circle cx="12" cy="12" r="4" fill="currentColor" />
           <line x1="12" y1="2" x2="12" y2="6" />
@@ -25,163 +25,154 @@
       </button>
     </div>
 
-    <!-- iPod device -->
+    <!-- Single iPod device -->
     <div class="device" id="device">
-      <!-- Screen with bezel wrapper and glare -->
-      <div class="screen-wrapper">
-        <div class="screen" id="screen">
+      <div class="screen" id="screen">
 
-          <!-- MENU VIEW -->
-          <div class="view active" id="viewMenu">
-            <div class="menu-list">
-              <div class="menu-item selected" data-action="search">
-                <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M21 21l-4.35-4.35" />
-                </svg>
-                <span>Search</span><span class="menu-arrow">›</span>
-              </div>
-              <div class="menu-item" data-action="library">
-                <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2">
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-                <span>Library</span><span class="menu-badge" id="libraryBadge"></span><span class="menu-arrow">›</span>
-              </div>
-              <div class="menu-item" data-action="nowplaying">
-                <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="5,3 19,12 5,21" />
-                </svg>
-                <span>Now Playing</span><span class="menu-arrow">›</span>
-              </div>
+        <!-- MENU VIEW -->
+        <div class="view active" id="viewMenu">
+          <div class="menu-list">
+            <div class="menu-item selected" data-action="search">
+              <svg class="menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              <span>Search</span><span class="menu-arrow">›</span>
+            </div>
+            <div class="menu-item" data-action="library">
+              <svg class="menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+              <span>Library</span><span class="menu-badge" id="libraryBadge"></span><span class="menu-arrow">›</span>
+            </div>
+            <div class="menu-item" data-action="nowplaying">
+              <svg class="menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5,3 19,12 5,21" />
+              </svg>
+              <span>Now Playing</span><span class="menu-arrow">›</span>
             </div>
           </div>
-
-          <!-- SEARCH VIEW -->
-          <div class="view" id="viewSearch">
-            <div class="search-container">
-              <input type="text" id="searchInput" placeholder="Search songs..." autocomplete="off" spellcheck="false">
-            </div>
-            <div class="suggestions-dropdown hidden" id="suggestionsDropdown"></div>
-            <div id="searchStatus" class="search-status"></div>
-            <div id="searchResult" class="search-result hidden">
-              <div class="result-title" id="resultTitle"></div>
-              <div class="result-meta" id="resultMeta"></div>
-              <div class="quality-selector" id="qualitySelector">
-                <div class="format-toggle-row">
-                  <button class="fmt-btn active" id="fmtMp3" data-codec="mp3">MP3</button>
-                  <button class="fmt-btn" id="fmtOpus" data-codec="opus">Opus <span class="fmt-badge">~60%
-                      smaller</span></button>
-                </div>
-                <div class="quality-label" id="qualityLabel">Quality</div>
-                <div class="quality-options" id="qualityOptions"></div>
-              </div>
-              <button id="downloadBtn" class="download-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2.5">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="7,10 12,15 17,10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg><span>Download</span></button>
-              <div class="download-progress-wrap hidden" id="downloadProgressWrap">
-                <div class="download-progress-bar">
-                  <div class="download-progress-fill" id="downloadProgressFill"></div>
-                </div>
-                <div class="download-progress-text" id="downloadProgressText">0%</div>
-              </div>
-              <div id="downloadStatus" class="download-status"></div>
-            </div>
-          </div>
-
-          <!-- LIBRARY VIEW -->
-          <div class="view" id="viewLibrary">
-            <div class="library-list" id="libraryList">
-              <div class="library-empty">No songs yet.<br>Search & download!</div>
-            </div>
-          </div>
-
-          <!-- NOW PLAYING VIEW -->
-          <div class="view" id="viewNowPlaying">
-            <div class="np-content">
-              <div class="np-artwork" id="npArtwork">
-                <div class="np-artwork-placeholder">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                  </svg>
-                </div>
-              </div>
-              <div class="np-info">
-                <div class="np-title" id="npTitle">No song playing</div>
-                <div class="np-artist" id="npArtist"></div>
-                <div class="np-trackcount" id="npTrackNum"></div>
-              </div>
-            </div>
-            <div class="np-transport">
-              <div class="np-transport-icons">
-                <button class="transport-icon-btn" id="btnShuffle" title="Shuffle"><svg width="14" height="14"
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="16,3 21,3 21,8" />
-                    <line x1="4" y1="20" x2="21" y2="3" />
-                    <polyline points="21,16 21,21 16,21" />
-                    <line x1="15" y1="15" x2="21" y2="21" />
-                    <line x1="4" y1="4" x2="9" y2="9" />
-                  </svg></button>
-                <button class="transport-icon-btn" id="btnRepeat" title="Repeat"><svg width="14" height="14"
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="17,1 21,5 17,9" />
-                    <path d="M3 11V9a4 4 0 014-4h14" />
-                    <polyline points="7,23 3,19 7,15" />
-                    <path d="M21 13v2a4 4 0 01-4 4H3" />
-                  </svg></button>
-              </div>
-              <div class="progress-bar-container">
-                <div class="progress-bar" id="npProgressBar">
-                  <div class="progress-fill" id="npProgressFill" style="width:0%"></div>
-                  <div class="progress-knob" id="npProgressKnob"></div>
-                </div>
-              </div>
-              <div class="progress-times">
-                <span class="progress-time" id="npTimeElapsed">0:00</span>
-                <span class="progress-time" id="npTimeTotal">-0:00</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="loading-overlay hidden" id="loadingOverlay">
-            <div class="loading-disc"></div>
-            <div class="loading-text" id="loadingText">Loading...</div>
-          </div>
-          <div class="toast hidden" id="toast"></div>
-
-          <!-- Screen glare overlay -->
-          <div class="screen-glare"></div>
         </div>
+
+        <!-- SEARCH VIEW -->
+        <div class="view" id="viewSearch">
+          <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search songs..." autocomplete="off" spellcheck="false">
+          </div>
+          <div class="suggestions-dropdown hidden" id="suggestionsDropdown"></div>
+          <div id="searchStatus" class="search-status"></div>
+          <div id="searchResult" class="search-result hidden">
+            <div class="result-title" id="resultTitle"></div>
+            <div class="result-meta" id="resultMeta"></div>
+            <div class="quality-selector" id="qualitySelector">
+              <div class="format-toggle-row">
+                <button class="fmt-btn active" id="fmtMp3" data-codec="mp3">MP3</button>
+                <button class="fmt-btn" id="fmtOpus" data-codec="opus">Opus <span class="fmt-badge">~60%
+                    smaller</span></button>
+              </div>
+              <div class="quality-label" id="qualityLabel">Quality</div>
+              <div class="quality-options" id="qualityOptions">
+                <!-- populated by JS based on selected codec -->
+              </div>
+            </div>
+            <button id="downloadBtn" class="download-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7,10 12,15 17,10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg><span>Download</span></button>
+            <div class="download-progress-wrap hidden" id="downloadProgressWrap">
+              <div class="download-progress-bar">
+                <div class="download-progress-fill" id="downloadProgressFill"></div>
+              </div>
+              <div class="download-progress-text" id="downloadProgressText">0%</div>
+            </div>
+            <div id="downloadStatus" class="download-status"></div>
+          </div>
+        </div>
+
+        <!-- LIBRARY VIEW -->
+        <div class="view" id="viewLibrary">
+          <div class="library-list" id="libraryList">
+            <div class="library-empty">No songs yet.<br>Search & download!</div>
+          </div>
+        </div>
+
+        <!-- NOW PLAYING VIEW -->
+        <div class="view" id="viewNowPlaying">
+          <div class="np-content">
+            <div class="np-artwork" id="npArtwork">
+              <div class="np-artwork-placeholder">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+              </div>
+            </div>
+            <div class="np-info">
+              <div class="np-title" id="npTitle">No song playing</div>
+              <div class="np-artist" id="npArtist"></div>
+              <div class="np-trackcount" id="npTrackNum"></div>
+            </div>
+          </div>
+          <div class="np-transport">
+            <div class="np-transport-icons">
+              <button class="transport-icon-btn" id="btnShuffle" title="Shuffle"><svg width="16" height="16"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16,3 21,3 21,8" />
+                  <line x1="4" y1="20" x2="21" y2="3" />
+                  <polyline points="21,16 21,21 16,21" />
+                  <line x1="15" y1="15" x2="21" y2="21" />
+                  <line x1="4" y1="4" x2="9" y2="9" />
+                </svg></button>
+              <button class="transport-icon-btn" id="btnRepeat" title="Repeat"><svg width="16" height="16"
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="17,1 21,5 17,9" />
+                  <path d="M3 11V9a4 4 0 014-4h14" />
+                  <polyline points="7,23 3,19 7,15" />
+                  <path d="M21 13v2a4 4 0 01-4 4H3" />
+                </svg></button>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="npProgressBar">
+                <div class="progress-fill" id="npProgressFill" style="width:0%"></div>
+                <div class="progress-knob" id="npProgressKnob"></div>
+              </div>
+            </div>
+            <div class="progress-times">
+              <span class="progress-time" id="npTimeElapsed">0:00</span>
+              <span class="progress-time" id="npTimeTotal">-0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="loading-overlay hidden" id="loadingOverlay">
+          <div class="loading-disc"></div>
+          <div class="loading-text" id="loadingText">Loading...</div>
+        </div>
+        <div class="toast hidden" id="toast"></div>
       </div>
 
-      <!-- Divider -->
-      <div class="device-divider"></div>
-
-      <!-- Click Wheel with hardware feel -->
+      <!-- Click Wheel -->
       <div class="wheel" id="clickWheel">
-        <div class="wheel-highlight" id="wheelHighlight"></div>
         <button class="wheel-label wheel-label-top" id="btnMenu">MENU</button>
         <button class="wheel-label wheel-label-left" id="btnPrev">
-          <svg width="16" height="12" viewBox="0 0 24 18" fill="currentColor">
+          <svg width="18" height="14" viewBox="0 0 24 18" fill="currentColor">
             <rect x="0" y="1" width="3" height="16" rx="1" />
             <polygon points="22,1 8,9 22,17" />
           </svg>
         </button>
         <button class="wheel-label wheel-label-right" id="btnNext">
-          <svg width="16" height="12" viewBox="0 0 24 18" fill="currentColor">
+          <svg width="18" height="14" viewBox="0 0 24 18" fill="currentColor">
             <rect x="21" y="1" width="3" height="16" rx="1" />
             <polygon points="2,1 16,9 2,17" />
           </svg>
         </button>
         <button class="wheel-label wheel-label-bottom" id="btnPlay">
-          <svg width="18" height="12" viewBox="0 0 24 18" fill="currentColor">
+          <svg width="20" height="14" viewBox="0 0 24 18" fill="currentColor">
             <polygon points="1,1 10,9 1,17" />
             <rect x="14" y="1" width="3.5" height="16" rx="1" />
             <rect x="20" y="1" width="3.5" height="16" rx="1" />

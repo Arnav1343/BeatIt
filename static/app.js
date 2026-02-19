@@ -28,9 +28,6 @@
     const loadingOverlay = $('#loadingOverlay');
     const loadingText = $('#loadingText');
     const toastEl = $('#toast');
-    const themeToggle = $('#themeToggle');
-    const themeIconSun = $('#themeIconSun');
-    const themeIconMoon = $('#themeIconMoon');
 
     let currentView = 'menu';
     let viewHistory = [];
@@ -45,7 +42,6 @@
     let progressPollInterval = null;
     let isShuffle = false;
     let isRepeat = false;
-    let isDark = localStorage.getItem('ipod-theme') === 'dark';
 
     // ─── Theme System ───────────────────────────────────────────────
     const themes = [
@@ -70,19 +66,9 @@
             document.body.setAttribute('data-theme', t.id);
         }
         localStorage.setItem('ipod-theme-id', t.id);
-        // Update icon visibility
-        if (themeIconSun) themeIconSun.style.display = 'none';
-        if (themeIconMoon) themeIconMoon.style.display = 'block';
     }
 
-    // Light/dark toggle — cycles through all 5 themes
-    themeToggle.addEventListener('click', () => {
-        currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-        applyTheme();
-        showToast(themes[currentThemeIndex].name);
-    });
-
-    // Theme cycle button — also cycles
+    // Single theme cycle button
     const themeCycleBtn = $('#themeCycle');
     themeCycleBtn.addEventListener('click', () => {
         currentThemeIndex = (currentThemeIndex + 1) % themes.length;
