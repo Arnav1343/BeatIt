@@ -367,7 +367,8 @@ body {
 
 /* Device */
 .device {
-  width: 370px;
+  width: 340px;
+  max-height: 92vh;
   height: 700px;
   border-radius: 40px;
   background: var(--device-bg);
