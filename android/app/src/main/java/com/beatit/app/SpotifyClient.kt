@@ -322,6 +322,10 @@ object SpotifyClient {
         val url: String
     )
 
+    fun getRawUserPlaylists(): String {
+        return apiGet("$API_BASE/me/playlists?limit=5")
+    }
+
     fun getUserPlaylists(): List<PlaylistInfo> {
         val playlists = mutableListOf<PlaylistInfo>()
         var url: String? = "$API_BASE/me/playlists?limit=50"
