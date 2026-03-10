@@ -329,27 +329,47 @@ object SpotifyClient {
         while (url != null && playlists.size < 200) {
             val body = apiGet(url)
             Log.d(TAG, "Playlists response (first 500 chars): ${body.take(500)}")
-            val page = gson.fromJson(body, PlaylistsPage::class.java)
 
-            page.items?.forEach { p ->
-                val thumb = p.images?.firstOrNull()?.url
-                val spotifyUrl = p.externalUrls?.get("spotify")
-                    ?: "https://open.spotify.com/playlist/${p.id}"
-                val count = p.tracks?.total ?: 0
+            // Parse manually to avoid Gson mapping issues with nested objects
+            val root = com.google.gson.JsonParser.parseString(body).asJsonObject
+            val items = root.getAsJsonArray("items") ?: continue
 
-                Log.d(TAG, "Playlist: ${p.name}, tracks.total=${p.tracks?.total}, count=$count")
+            for (item in items) {
+                val obj = item.asJsonObject
+
+                val id = obj.get("id")?.asString
+                val name = obj.get("name")?.asString ?: "Untitled"
+
+                // tracks is {"href": "...", "total": N}
+                val tracksObj = obj.getAsJsonObject("tracks")
+                val trackCount = tracksObj?.get("total")?.asInt ?: 0
+
+                // images is [{url, height, width}, ...]
+                val imagesArr = obj.getAsJsonArray("images")
+                val thumb = imagesArr?.firstOrNull()?.asJsonObject?.get("url")?.asString
+
+                // owner is {display_name: "..."}
+                val ownerObj = obj.getAsJsonObject("owner")
+                val ownerName = ownerObj?.get("display_name")?.asString ?: ""
+
+                // external_urls is {spotify: "..."}
+                val extUrls = obj.getAsJsonObject("external_urls")
+                val spotifyUrl = extUrls?.get("spotify")?.asString
+                    ?: "https://open.spotify.com/playlist/$id"
+
+                Log.d(TAG, "Playlist: $name, trackCount=$trackCount, owner=$ownerName")
 
                 playlists.add(PlaylistInfo(
-                    id = p.id,
-                    name = p.name ?: "Untitled",
-                    trackCount = count,
+                    id = id,
+                    name = name,
+                    trackCount = trackCount,
                     thumbnail = thumb,
-                    owner = p.owner?.displayName ?: "",
+                    owner = ownerName,
                     url = spotifyUrl
                 ))
             }
 
-            url = page.next
+            url = root.get("next")?.let { if (it.isJsonNull) null else it.asString }
         }
 
         Log.d(TAG, "Fetched ${playlists.size} user playlists")
