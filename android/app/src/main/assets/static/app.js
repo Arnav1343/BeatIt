@@ -690,10 +690,16 @@
             const r = await fetch('/api/spotify/playlists');
             const d = await r.json();
             if (d.error) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">' + escH(d.error) + '</div>'; return; }
-            spotifyPlaylists = d;
+            spotifyPlaylists = Array.isArray(d) ? d : (d.items || d.playlists || []);
             spotifyIndex = 0;
+            // Debug: show first playlist's keys and trackCount value
+            if (spotifyPlaylists.length > 0) {
+                const first = spotifyPlaylists[0];
+                const keys = Object.keys(first).join(', ');
+                showToast('Keys: ' + keys + ' | tc=' + first.trackCount + ' | t=' + JSON.stringify(first.tracks));
+            }
             renderSpotifyPlaylists();
-        } catch { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed to load playlists</div>'; }
+        } catch(e) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed: ' + e.message + '</div>'; }
     }
 
     function renderSpotifyPlaylists() {
