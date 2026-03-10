@@ -1,24 +1,18 @@
 package com.beatit.app
 
-import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Spotify Web API client using Client Credentials flow.
- * No user login required — reads public playlist and album data only.
+ * Spotify Web API client.
+ * Uses the access token provided by SpotifyAuth (OAuth PKCE flow).
  */
 object SpotifyClient {
     private const val TAG = "SpotifyClient"
-    private const val CLIENT_ID = "781875772a3a48aa9bf2f18af745e4c0"
-    private const val CLIENT_SECRET = "f22d881d91f7448fa1c4e5c36a336a14"
-    private const val TOKEN_URL = "https://accounts.spotify.com/api/token"
     private const val API_BASE = "https://api.spotify.com/v1"
 
     private val gson = Gson()
@@ -27,15 +21,7 @@ object SpotifyClient {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private var accessToken: String? = null
-    private var tokenExpiresAt: Long = 0
-
     // ── Data classes for API responses ──────────────────────────────
-
-    data class TokenResponse(
-        @SerializedName("access_token") val accessToken: String,
-        @SerializedName("expires_in") val expiresIn: Int
-    )
 
     data class TracksPage(
         val items: List<PlaylistItem>?,
@@ -82,49 +68,43 @@ object SpotifyClient {
         val artists: List<SpotifyArtist>?
     )
 
-    // ── Auth ────────────────────────────────────────────────────────
+    // User playlists response
+    data class PlaylistsPage(
+        val items: List<UserPlaylist>?,
+        val next: String?,
+        val total: Int?
+    )
 
-    @Synchronized
-    private fun ensureToken() {
-        if (accessToken != null && System.currentTimeMillis() < tokenExpiresAt) return
+    data class UserPlaylist(
+        val id: String?,
+        val name: String?,
+        val description: String?,
+        val images: List<SpotifyImage>?,
+        val tracks: PlaylistTrackRef?,
+        val owner: PlaylistOwner?,
+        @SerializedName("external_urls") val externalUrls: Map<String, String>?
+    )
 
-        Log.d(TAG, "Requesting new Spotify access token...")
-        val credentials = Base64.encodeToString(
-            "$CLIENT_ID:$CLIENT_SECRET".toByteArray(),
-            Base64.NO_WRAP
-        )
+    data class PlaylistTrackRef(val total: Int?)
+    data class PlaylistOwner(@SerializedName("display_name") val displayName: String?)
 
-        val request = Request.Builder()
-            .url(TOKEN_URL)
-            .header("Authorization", "Basic $credentials")
-            .post("grant_type=client_credentials".toRequestBody("application/x-www-form-urlencoded".toMediaType()))
-            .build()
-
-        val response = http.newCall(request).execute()
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string() ?: ""
-            Log.e(TAG, "Token request failed: HTTP ${response.code}, body: $errorBody")
-            throw IOException("Token request failed: ${response.code}")
-        }
-
-        val body = response.body?.string() ?: throw IOException("Empty token response")
-        val token = gson.fromJson(body, TokenResponse::class.java)
-
-        accessToken = token.accessToken
-        tokenExpiresAt = System.currentTimeMillis() + (token.expiresIn - 60) * 1000L
-        Log.d(TAG, "Spotify token refreshed, expires in ${token.expiresIn}s")
-    }
+    // ── API Helpers ─────────────────────────────────────────────────
 
     private fun apiGet(url: String): String {
-        ensureToken()
+        val token = SpotifyAuth.getAccessToken()
+            ?: throw IOException("Not connected to Spotify. Please log in first.")
+
         val request = Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer $accessToken")
+            .header("Authorization", "Bearer $token")
             .build()
         val response = http.newCall(request).execute()
         if (!response.isSuccessful) {
             val errorBody = response.body?.string() ?: ""
             Log.e(TAG, "Spotify API error: HTTP ${response.code} for $url, body: ${errorBody.take(300)}")
+            if (response.code == 401) {
+                throw IOException("Spotify session expired. Please reconnect.")
+            }
             throw IOException("Spotify API error: ${response.code}")
         }
         return response.body?.string() ?: throw IOException("Empty API response")
@@ -270,5 +250,41 @@ object SpotifyClient {
 
         Log.d(TAG, "Fetched ${tracks.size} tracks from album $albumId")
         return tracks.take(500)
+    }
+
+    // ── User Playlists ──────────────────────────────────────────────
+
+    /**
+     * Fetch the current user's playlists.
+     * Requires user to be connected via SpotifyAuth.
+     */
+    fun getUserPlaylists(): List<Map<String, Any?>> {
+        val playlists = mutableListOf<Map<String, Any?>>()
+        var url: String? = "$API_BASE/me/playlists?limit=50"
+
+        while (url != null && playlists.size < 200) {
+            val body = apiGet(url)
+            val page = gson.fromJson(body, PlaylistsPage::class.java)
+
+            page.items?.forEach { p ->
+                val thumb = p.images?.firstOrNull()?.url
+                val spotifyUrl = p.externalUrls?.get("spotify")
+                    ?: "https://open.spotify.com/playlist/${p.id}"
+
+                playlists.add(mapOf(
+                    "id" to p.id,
+                    "name" to (p.name ?: "Untitled"),
+                    "trackCount" to (p.tracks?.total ?: 0),
+                    "thumbnail" to thumb,
+                    "owner" to (p.owner?.displayName ?: ""),
+                    "url" to spotifyUrl
+                ))
+            }
+
+            url = page.next
+        }
+
+        Log.d(TAG, "Fetched ${playlists.size} user playlists")
+        return playlists
     }
 }

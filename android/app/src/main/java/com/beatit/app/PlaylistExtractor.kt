@@ -7,6 +7,7 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.jsoup.Jsoup
 import com.google.gson.Gson
 import com.google.gson.JsonParser
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.*
 import kotlin.math.roundToInt
@@ -66,7 +67,13 @@ object PlaylistExtractor {
     )
 
     private fun extractSpotify(url: String): List<TrackCandidate> {
-        // Strategy 1: Try the official Spotify Web API (works for public playlists/albums)
+        // Check if user is connected to Spotify
+        if (!SpotifyAuth.isConnected()) {
+            Log.e(TAG, "Spotify not connected — user needs to log in first")
+            throw IOException("Connect your Spotify account first. Go to Menu → Spotify.")
+        }
+
+        // Use the Spotify Web API with the user's OAuth token
         try {
             Log.d(TAG, "Attempting Spotify API extraction for: $url")
             val tracks = SpotifyClient.getTracks(url)
@@ -74,25 +81,12 @@ object PlaylistExtractor {
                 Log.d(TAG, "Spotify API returned ${tracks.size} tracks")
                 return tracks
             }
-            Log.w(TAG, "Spotify API returned 0 tracks")
+            Log.w(TAG, "Spotify API returned 0 tracks — playlist may be empty")
         } catch (e: Exception) {
-            Log.w(TAG, "Spotify API failed (${e.message}), trying web scraping...")
+            Log.e(TAG, "Spotify API failed: ${e.message}", e)
+            throw IOException("Spotify API error: ${e.message}")
         }
 
-        // Strategy 2: Scrape the Spotify web page for track data
-        // Spotify embeds track info in the HTML for SEO purposes
-        try {
-            Log.d(TAG, "Trying Spotify web scraping for: $url")
-            val tracks = scrapeSpotifyPage(url)
-            if (tracks.isNotEmpty()) {
-                Log.d(TAG, "Web scraping found ${tracks.size} tracks")
-                return tracks
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Web scraping failed: ${e.message}", e)
-        }
-
-        Log.e(TAG, "All Spotify extraction methods failed for: $url")
         return emptyList()
     }
 

@@ -4,6 +4,10 @@
   box-sizing: border-box
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* ─── View System ─────────────────────────────────────────────── */
 .view {
   display: none !important;
@@ -2035,4 +2039,161 @@ body {
 
 .track-item.selected .track-title {
   color: var(--accent);
+}
+
+/* ═══ SPOTIFY VIEW ═══ */
+
+#viewSpotify {
+  padding-top: 8px;
+}
+
+.spotify-connect-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  height: 100%;
+}
+
+.spotify-logo {
+  opacity: 0.9;
+}
+
+.spotify-connect-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.spotify-connect-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.spotify-connect-btn {
+  background: #1DB954;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 28px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.spotify-connect-btn:active {
+  transform: scale(0.95);
+  background: #1aa34a;
+}
+
+.spotify-connected-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.spotify-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px 8px;
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+
+.spotify-user {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1DB954;
+}
+
+.spotify-logout-btn {
+  background: none;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 3px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.spotify-playlist-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sp-pl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--divider);
+  transition: background 0.05s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sp-pl-item.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.sp-pl-item.selected .sp-pl-name {
+  color: #fff;
+}
+
+.sp-pl-item.selected .sp-pl-meta {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sp-pl-item.selected .menu-arrow {
+  color: #fff;
+}
+
+.sp-pl-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--artwork-bg);
+}
+
+.sp-pl-no-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.sp-pl-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sp-pl-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.05s;
+}
+
+.sp-pl-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.05s;
 }

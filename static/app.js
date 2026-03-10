@@ -156,6 +156,11 @@
     function updateAllMenuSels() {
         $$('#viewMenu .menu-item').forEach((el, i) => el.classList.toggle('selected', i === menuIndex));
         $$('#viewActionMenu .menu-item').forEach((el, i) => el.classList.toggle('selected', i === actionMenuIndex));
+        // Scroll selected menu item into view
+        const selMenu = $('#viewMenu .menu-item.selected');
+        if (selMenu) selMenu.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const selAction = $('#viewActionMenu .menu-item.selected');
+        if (selAction) selAction.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     function menuUp() {

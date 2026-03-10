@@ -17,6 +17,7 @@
         library: $('#viewLibrary'),
         nowplaying: $('#viewNowPlaying'),
         import: $('#viewImport'),
+        spotify: $('#viewSpotify'),
         batches: $('#viewBatches'),
         batchDetail: $('#viewBatchDetail'),
         actionMenu: $('#viewActionMenu')
@@ -71,6 +72,11 @@
     let batchDetailPollInterval = null;
     let actionMenuIndex = 0;
 
+    // ─── Spotify state ────────────────────────────────────────────
+    let spotifyConnected = false;
+    let spotifyPlaylists = [];
+    let spotifyIndex = 0;
+
     // ─── Theme System ───────────────────────────────────────────────
     const themes = [
         { id: 'default', name: 'Pink / Black', dark: true },
@@ -112,6 +118,7 @@
 
         if (name === 'library') refreshLibrary();
         if (name === 'import') { $('#importInput').focus(); }
+        if (name === 'spotify') { checkSpotifyStatus(); }
         if (name === 'batches') { refreshBatches(); batchPollInterval = setInterval(refreshBatches, 2000); }
         if (name === 'batchDetail') { refreshBatchDetail(); batchDetailPollInterval = setInterval(refreshBatchDetail, 1000); }
 
@@ -132,6 +139,7 @@
         if (name === 'library') libraryIndex = 0;
         if (name === 'batches') batchesIndex = 0;
         if (name === 'batchDetail') batchTracksIndex = 0;
+        if (name === 'spotify') spotifyIndex = 0;
 
         if (name !== 'search' && name !== 'actionMenu') {
             activeTrackId = null;
@@ -641,6 +649,107 @@
     $('#importSubmitBtn').addEventListener('click', submitImport);
     $('#importInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitImport(); });
 
+    // ─── Spotify Functions ───────────────────────────────────────
+
+    async function checkSpotifyStatus() {
+        try {
+            const r = await fetch('/api/spotify/status');
+            const d = await r.json();
+            spotifyConnected = d.connected;
+            const badge = $('#spotifyBadge');
+            if (badge) badge.textContent = spotifyConnected ? '✓' : '';
+            if (spotifyConnected) {
+                $('#spotifyDisconnected').classList.add('hidden');
+                $('#spotifyConnected').classList.remove('hidden');
+                $('#spotifyUser').textContent = d.user || 'Connected';
+                loadSpotifyPlaylists();
+            } else {
+                $('#spotifyDisconnected').classList.remove('hidden');
+                $('#spotifyConnected').classList.add('hidden');
+            }
+        } catch { }
+    }
+
+    function connectSpotify() {
+        window.location.href = '/api/spotify/login';
+    }
+
+    async function disconnectSpotify() {
+        try {
+            await fetch('/api/spotify/logout', { method: 'POST' });
+            spotifyConnected = false;
+            spotifyPlaylists = [];
+            showToast('Spotify disconnected');
+            checkSpotifyStatus();
+        } catch { showToast('Failed to disconnect', 'error'); }
+    }
+
+    async function loadSpotifyPlaylists() {
+        try {
+            $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Loading playlists...</div>';
+            const r = await fetch('/api/spotify/playlists');
+            const d = await r.json();
+            if (d.error) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">' + escH(d.error) + '</div>'; return; }
+            spotifyPlaylists = d;
+            spotifyIndex = 0;
+            renderSpotifyPlaylists();
+        } catch { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed to load playlists</div>'; }
+    }
+
+    function renderSpotifyPlaylists() {
+        if (!spotifyPlaylists.length) {
+            $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">No playlists found.</div>';
+            return;
+        }
+        $('#spotifyPlaylistList').innerHTML = spotifyPlaylists.map((p, i) => {
+            const thumb = p.thumbnail ? `<img class="sp-pl-thumb" src="${esc(p.thumbnail)}" alt="">` : '<div class="sp-pl-thumb sp-pl-no-thumb">♪</div>';
+            return `<div class="sp-pl-item ${i === spotifyIndex ? 'selected' : ''}" data-idx="${i}">
+                ${thumb}
+                <div class="sp-pl-info">
+                    <div class="sp-pl-name">${escH(p.name)}</div>
+                    <div class="sp-pl-meta">${p.trackCount} tracks · ${escH(p.owner || '')}</div>
+                </div>
+                <span class="menu-arrow">›</span>
+            </div>`;
+        }).join('');
+
+        $$('.sp-pl-item').forEach(el => el.addEventListener('click', () => {
+            spotifyIndex = parseInt(el.dataset.idx);
+            renderSpotifyPlaylists();
+            importSpotifyPlaylist();
+        }));
+
+        const sel = $('#spotifyPlaylistList .sp-pl-item.selected');
+        if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    async function importSpotifyPlaylist() {
+        const p = spotifyPlaylists[spotifyIndex];
+        if (!p) return;
+        showLoading('Importing ' + p.name + '...');
+        try {
+            const r = await fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: p.url }) });
+            const d = await r.json();
+            if (d.error) { showToast(d.error, 'error'); return; }
+            showToast(`Importing ${d.trackCount} tracks!`, 'success');
+            showView('batches');
+        } catch { showToast('Import failed', 'error'); }
+        finally { hideLoading(); }
+    }
+
+    function spotifyUp() { spotifyIndex = Math.max(0, spotifyIndex - 1); renderSpotifyPlaylists(); }
+    function spotifyDown() { spotifyIndex = Math.min(spotifyPlaylists.length - 1, spotifyIndex + 1); renderSpotifyPlaylists(); }
+    function spotifySelect() {
+        if (!spotifyConnected) { connectSpotify(); return; }
+        importSpotifyPlaylist();
+    }
+
+    $('#spotifyConnectBtn')?.addEventListener('click', connectSpotify);
+    $('#spotifyLogoutBtn')?.addEventListener('click', disconnectSpotify);
+
+    // Check Spotify status on app load
+    checkSpotifyStatus();
+
     function prevTrack() {
         if (audio.currentTime > 3) { audio.currentTime = 0; return; }
         if (!library.length) return;
@@ -680,6 +789,7 @@
         else if (currentView === 'library') libSelect();
         else if (currentView === 'nowplaying') togglePlay();
         else if (currentView === 'import') submitImport();
+        else if (currentView === 'spotify') spotifySelect();
         else if (currentView === 'batches') batchesSelect();
         else if (currentView === 'batchDetail') tracksSelect();
         else if (currentView === 'actionMenu') actionMenuSelect();
@@ -716,6 +826,7 @@
         dialTick();
         if (currentView === 'menu') { dir > 0 ? menuDown() : menuUp(); }
         else if (currentView === 'library') { dir > 0 ? libDown() : libUp(); }
+        else if (currentView === 'spotify') { dir > 0 ? spotifyDown() : spotifyUp(); }
         else if (currentView === 'batches') { dir > 0 ? batchesDown() : batchesUp(); }
         else if (currentView === 'batchDetail') { dir > 0 ? tracksDown() : tracksUp(); }
         else if (currentView === 'nowplaying') {

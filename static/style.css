@@ -773,15 +773,17 @@ body {
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
-  border-radius: 0;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.05s, color 0.05s;
+  transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   border-bottom: 1px solid var(--divider);
-  color: var(--text-primary)
+  border-left: 3px solid transparent;
+  color: var(--text-primary);
+  position: relative;
 }
 
 .menu-item:last-child {
@@ -792,10 +794,23 @@ body {
   opacity: 0.8
 }
 
-/* Full-width solid highlight, white text — classic iPod */
 .menu-item.selected {
-  background: var(--accent);
-  color: #fff;
+  background: var(--card-bg);
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255, 46, 99, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  animation: cursorPulse 1.5s ease-in-out infinite;
 }
 
 .menu-icon {
@@ -811,7 +826,7 @@ body {
 
 .menu-item.selected .menu-icon {
   opacity: 1;
-  color: #fff
+  color: var(--accent);
 }
 
 .menu-item .menu-arrow {
@@ -821,8 +836,8 @@ body {
 }
 
 .menu-item.selected .menu-arrow {
-  opacity: 0.8;
-  color: #fff
+  opacity: 1;
+  color: var(--accent);
 }
 
 .menu-badge {
@@ -907,10 +922,28 @@ body {
   border-bottom: none;
 }
 
+.suggestions-dropdown .suggestion-item {
+  border-left: 3px solid transparent;
+  position: relative;
+}
+
 .suggestions-dropdown .suggestion-item:hover,
 .suggestions-dropdown .suggestion-item.selected {
-  background: var(--accent-fill);
-  color: #fff;
+  background: var(--card-bg);
+  border-left-color: var(--accent);
+}
+
+.suggestions-dropdown .suggestion-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255, 46, 99, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  animation: cursorPulse 1.5s ease-in-out infinite;
 }
 
 .suggestion-thumb {
@@ -938,7 +971,7 @@ body {
 
 .suggestion-item:hover .suggestion-title,
 .suggestion-item.selected .suggestion-title {
-  color: #fff;
+  color: var(--accent);
 }
 
 .suggestion-artist {
@@ -951,7 +984,7 @@ body {
 
 .suggestion-item:hover .suggestion-artist,
 .suggestion-item.selected .suggestion-artist {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
 }
 
 .suggestion-dur {
@@ -963,7 +996,7 @@ body {
 
 .suggestion-item:hover .suggestion-dur,
 .suggestion-item.selected .suggestion-dur {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--accent);
 }
 
 .suggestions-loading {
@@ -1173,13 +1206,35 @@ body {
   transform: scale(0.98)
 }
 
+.library-item {
+  border-left: 3px solid transparent;
+  position: relative;
+}
+
 .library-item.selected {
-  background: var(--card-bg)
+  background: var(--card-bg);
+  border-left-color: var(--accent);
+}
+
+.library-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255, 46, 99, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  animation: cursorPulse 1.5s ease-in-out infinite;
+}
+
+.library-item.selected .lib-title {
+  color: var(--accent);
 }
 
 .library-item.playing {
-  border-left: 2px solid var(--accent);
-  padding-left: 4px
+  border-left-color: var(--accent);
 }
 
 .lib-icon {

@@ -14,6 +14,10 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
     private val downloadManager = DownloadManager(context, musicDir)
     private val youtubeHelper = YoutubeHelper()
 
+    init {
+        SpotifyAuth.init(context)
+    }
+
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
         val method = session.method
@@ -31,6 +35,11 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 uri == "/api/import/list" -> handleImportList()
                 uri.startsWith("/api/import/status/") -> handleImportStatus(uri)
                 method == Method.POST && uri == "/api/import/action" -> handleImportAction(session)
+                uri == "/api/spotify/login" -> handleSpotifyLogin()
+                uri == "/api/spotify/callback" -> handleSpotifyCallback(session)
+                uri == "/api/spotify/status" -> handleSpotifyStatus()
+                uri == "/api/spotify/playlists" -> handleSpotifyPlaylists()
+                method == Method.POST && uri == "/api/spotify/logout" -> handleSpotifyLogout()
                 uri == "/api/library" -> handleLibrary()
                 uri.startsWith("/api/music/") -> handleMusic(uri)
                 method == Method.POST && uri == "/api/delete" -> handleDelete(session)
@@ -231,6 +240,78 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 BatchManager.transition(trackId, TrackStatus.QUEUED)
             }
         }
+        return jsonOk(mapOf("success" to true))
+    }
+
+    // ── API: Spotify OAuth ───────────────────────────────────────
+
+    private fun handleSpotifyLogin(): Response {
+        val loginUrl = SpotifyAuth.getLoginUrl()
+        val response = newFixedLengthResponse(Response.Status.REDIRECT, MIME_PLAINTEXT, "")
+        response.addHeader("Location", loginUrl)
+        return response
+    }
+
+    private fun handleSpotifyCallback(session: IHTTPSession): Response {
+        val code = session.parms["code"]
+        val error = session.parms["error"]
+
+        if (error != null) {
+            return newFixedLengthResponse(Response.Status.OK, "text/html",
+                buildCallbackPage(false, "Authorization denied: $error"))
+        }
+
+        if (code == null) {
+            return newFixedLengthResponse(Response.Status.OK, "text/html",
+                buildCallbackPage(false, "No authorization code received."))
+        }
+
+        val success = SpotifyAuth.handleCallback(code)
+        return if (success) {
+            newFixedLengthResponse(Response.Status.OK, "text/html",
+                buildCallbackPage(true, "Connected to Spotify as ${SpotifyAuth.getUserName()}!"))
+        } else {
+            newFixedLengthResponse(Response.Status.OK, "text/html",
+                buildCallbackPage(false, "Failed to connect. Please try again."))
+        }
+    }
+
+    private fun buildCallbackPage(success: Boolean, message: String): String {
+        val color = if (success) "#1DB954" else "#e74c3c"
+        val icon = if (success) "✓" else "✗"
+        return """<!DOCTYPE html>
+            <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;
+            font-family:-apple-system,sans-serif;background:#111;color:#fff;text-align:center}
+            .card{padding:2em}.icon{font-size:3em;color:$color;margin-bottom:.5em}
+            .msg{font-size:1.1em;margin-bottom:1em}a{color:#1DB954;text-decoration:none}</style></head>
+            <body><div class="card"><div class="icon">$icon</div>
+            <div class="msg">$message</div>
+            <a href="/">Return to BeatIt</a></div>
+            <script>setTimeout(function(){window.location.href='/'},2500)</script>
+            </body></html>""".trimIndent()
+    }
+
+    private fun handleSpotifyStatus(): Response {
+        val connected = SpotifyAuth.isConnected()
+        val userName = if (connected) SpotifyAuth.getUserName() else ""
+        return jsonOk(mapOf("connected" to connected, "user" to userName))
+    }
+
+    private fun handleSpotifyPlaylists(): Response {
+        if (!SpotifyAuth.isConnected()) {
+            return jsonError("Not connected to Spotify")
+        }
+        return try {
+            val playlists = SpotifyClient.getUserPlaylists()
+            jsonOk(playlists)
+        } catch (e: Exception) {
+            jsonError(e.message ?: "Failed to fetch playlists")
+        }
+    }
+
+    private fun handleSpotifyLogout(): Response {
+        SpotifyAuth.logout()
         return jsonOk(mapOf("success" to true))
     }
 
