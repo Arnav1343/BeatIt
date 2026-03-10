@@ -696,7 +696,7 @@
             if (spotifyPlaylists.length > 0) {
                 const first = spotifyPlaylists[0];
                 const keys = Object.keys(first).join(', ');
-                showToast('Keys: ' + keys + ' | tc=' + first.trackCount + ' | t=' + JSON.stringify(first.tracks));
+                showToast('tc=' + first.trackCount + ' | raw=' + first.debugTracks);
             }
             renderSpotifyPlaylists();
         } catch(e) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed: ' + e.message + '</div>'; }

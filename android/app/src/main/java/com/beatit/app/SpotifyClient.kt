@@ -319,7 +319,8 @@ object SpotifyClient {
         val trackCount: Int,
         val thumbnail: String?,
         val owner: String,
-        val url: String
+        val url: String,
+        val debugTracks: String? = null
     )
 
     fun getRawUserPlaylists(): String {
@@ -344,9 +345,16 @@ object SpotifyClient {
                 val id = obj.get("id")?.asString
                 val name = obj.get("name")?.asString ?: "Untitled"
 
-                // tracks is {"href": "...", "total": N}
-                val tracksObj = obj.getAsJsonObject("tracks")
-                val trackCount = tracksObj?.get("total")?.asInt ?: 0
+                // tracks field — could be {"href":"...","total":N} or something else
+                val tracksEl = obj.get("tracks")
+                val debugTracks = tracksEl?.toString() ?: "NULL"
+                var trackCount = 0
+                if (tracksEl != null && tracksEl.isJsonObject) {
+                    trackCount = tracksEl.asJsonObject.get("total")?.asInt ?: 0
+                } else if (tracksEl != null && tracksEl.isJsonPrimitive) {
+                    trackCount = try { tracksEl.asInt } catch(e: Exception) { 0 }
+                }
+                Log.d(TAG, "Playlist: $name, tracksField=$debugTracks, parsed=$trackCount")
 
                 // images is [{url, height, width}, ...]
                 val imagesArr = obj.getAsJsonArray("images")
@@ -369,7 +377,8 @@ object SpotifyClient {
                     trackCount = trackCount,
                     thumbnail = thumb,
                     owner = ownerName,
-                    url = spotifyUrl
+                    url = spotifyUrl,
+                    debugTracks = debugTracks
                 ))
             }
 
