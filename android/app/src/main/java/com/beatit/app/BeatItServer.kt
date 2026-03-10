@@ -39,7 +39,6 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 uri == "/api/spotify/callback" -> handleSpotifyCallback(session)
                 uri == "/api/spotify/status" -> handleSpotifyStatus()
                 uri == "/api/spotify/playlists" -> handleSpotifyPlaylists()
-                uri == "/api/spotify/debug" -> handleSpotifyDebug()
                 method == Method.POST && uri == "/api/spotify/logout" -> handleSpotifyLogout()
                 uri == "/api/library" -> handleLibrary()
                 uri.startsWith("/api/music/") -> handleMusic(uri)
@@ -308,15 +307,6 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
             jsonOk(playlists)
         } catch (e: Exception) {
             jsonError(e.message ?: "Failed to fetch playlists")
-        }
-    }
-
-    private fun handleSpotifyDebug(): Response {
-        val raw = SpotifyClient.lastDebugFirstItem
-        return if (raw != null) {
-            newFixedLengthResponse(Response.Status.OK, "application/json", raw)
-        } else {
-            jsonError("No debug data yet. Open Spotify playlists first.")
         }
     }
 

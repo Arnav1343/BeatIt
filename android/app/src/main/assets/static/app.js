@@ -693,17 +693,6 @@
             spotifyPlaylists = Array.isArray(d) ? d : (d.items || d.playlists || []);
             spotifyIndex = 0;
             renderSpotifyPlaylists();
-            // Debug: fetch raw first item JSON from backend
-            try {
-                const dr = await fetch('/api/spotify/debug');
-                const dd = await dr.json();
-                if (!dd.error) {
-                    const tv = dd.tracks;
-                    const tt = typeof tv;
-                    const ts = JSON.stringify(tv);
-                    showToast('tracks type=' + tt + ' val=' + ts);
-                }
-            } catch(e2) {}
         } catch(e) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed: ' + e.message + '</div>'; }
     }
 
@@ -718,7 +707,7 @@
                 ${thumb}
                 <div class="sp-pl-info">
                     <div class="sp-pl-name">${escH(p.name)}</div>
-                    <div class="sp-pl-meta">${p.trackCount} tracks · ${escH(p.owner || '')}</div>
+                    <div class="sp-pl-meta">${p.trackCount ? p.trackCount + ' tracks · ' : ''}${escH(p.owner || '')}</div>
                 </div>
                 <span class="menu-arrow">›</span>
             </div>`;
