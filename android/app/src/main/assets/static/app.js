@@ -698,9 +698,10 @@
                 const dr = await fetch('/api/spotify/debug');
                 const dd = await dr.json();
                 if (!dd.error) {
-                    const allKeys = Object.keys(dd).join(', ');
-                    const hasTracksKey = 'tracks' in dd;
-                    showToast('RawKeys: ' + allKeys + ' | hasTracks=' + hasTracksKey);
+                    const tv = dd.tracks;
+                    const tt = typeof tv;
+                    const ts = JSON.stringify(tv);
+                    showToast('tracks type=' + tt + ' val=' + ts);
                 }
             } catch(e2) {}
         } catch(e) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed: ' + e.message + '</div>'; }
