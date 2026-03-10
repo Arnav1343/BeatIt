@@ -39,6 +39,7 @@ object SpotifyAuth {
     private const val KEY_REFRESH_TOKEN = "refresh_token"
     private const val KEY_EXPIRES_AT = "expires_at"
     private const val KEY_USER_NAME = "user_name"
+    private const val KEY_CODE_VERIFIER = "code_verifier"
 
     private val gson = Gson()
     private val http = OkHttpClient.Builder()
@@ -47,9 +48,6 @@ object SpotifyAuth {
         .build()
 
     private lateinit var prefs: SharedPreferences
-
-    // PKCE state — lives only during the login flow
-    private var codeVerifier: String? = null
 
     // ── Data classes ──────────────────────────────────────────────
 
@@ -79,16 +77,19 @@ object SpotifyAuth {
     fun getLoginUrl(): String {
         // Generate PKCE code verifier (43-128 chars, URL-safe random)
         val verifier = generateCodeVerifier()
-        codeVerifier = verifier
+        // Persist verifier — Android may kill our process while user is in the browser
+        prefs.edit().putString(KEY_CODE_VERIFIER, verifier).apply()
         val challenge = generateCodeChallenge(verifier)
 
-        return "$AUTH_URL?" +
+        val url = "$AUTH_URL?" +
                 "client_id=$CLIENT_ID" +
                 "&response_type=code" +
                 "&redirect_uri=${java.net.URLEncoder.encode(REDIRECT_URI, "UTF-8")}" +
                 "&scope=${java.net.URLEncoder.encode(SCOPES, "UTF-8")}" +
                 "&code_challenge_method=S256" +
                 "&code_challenge=$challenge"
+        Log.d(TAG, "Login URL generated, verifier persisted")
+        return url
     }
 
     /**
@@ -96,11 +97,12 @@ object SpotifyAuth {
      * Called when the callback endpoint receives the code from Spotify.
      */
     fun handleCallback(code: String): Boolean {
-        val verifier = codeVerifier
+        val verifier = prefs.getString(KEY_CODE_VERIFIER, null)
         if (verifier == null) {
-            Log.e(TAG, "No code verifier found — login flow was not started properly")
+            Log.e(TAG, "No code verifier found in prefs — login flow was not started or app was killed")
             return false
         }
+        Log.d(TAG, "handleCallback: code received, verifier found, exchanging...")
 
         try {
             val body = FormBody.Builder()
@@ -126,7 +128,8 @@ object SpotifyAuth {
 
             val token = gson.fromJson(responseBody, TokenResponse::class.java)
             saveTokens(token)
-            codeVerifier = null // Clean up
+            // Clear the code verifier from prefs
+            prefs.edit().remove(KEY_CODE_VERIFIER).apply()
 
             // Fetch user profile
             fetchAndSaveUserName(token.accessToken)
@@ -147,20 +150,32 @@ object SpotifyAuth {
      */
     @Synchronized
     fun getAccessToken(): String? {
-        val token = prefs.getString(KEY_ACCESS_TOKEN, null) ?: return null
+        if (!::prefs.isInitialized) {
+            Log.e(TAG, "getAccessToken called before init()!")
+            return null
+        }
+        val token = prefs.getString(KEY_ACCESS_TOKEN, null)
+        if (token == null) {
+            Log.d(TAG, "getAccessToken: no token stored")
+            return null
+        }
         val expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0)
+        val now = System.currentTimeMillis()
 
         // If token is still valid (with 60s buffer), return it
-        if (System.currentTimeMillis() < expiresAt - 60_000) {
+        if (now < expiresAt - 60_000) {
+            Log.d(TAG, "getAccessToken: token valid, expires in ${(expiresAt - now) / 1000}s")
             return token
         }
 
+        Log.d(TAG, "getAccessToken: token expired (now=$now, expiresAt=$expiresAt), trying refresh...")
         // Try to refresh
         val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)
         if (refreshToken != null) {
             return refreshAccessToken(refreshToken)
         }
 
+        Log.w(TAG, "getAccessToken: no refresh token available")
         return null
     }
 
@@ -236,7 +251,6 @@ object SpotifyAuth {
 
     fun logout() {
         prefs.edit().clear().apply()
-        codeVerifier = null
         Log.d(TAG, "Spotify disconnected")
     }
 

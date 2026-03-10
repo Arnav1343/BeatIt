@@ -103,8 +103,12 @@ object SpotifyClient {
     private fun getToken(): String {
         // Prefer OAuth user token (works for everything including playlists)
         val userToken = SpotifyAuth.getAccessToken()
-        if (userToken != null) return userToken
+        if (userToken != null) {
+            Log.d(TAG, "getToken: using OAuth user token")
+            return userToken
+        }
 
+        Log.d(TAG, "getToken: no OAuth token, falling back to Client Credentials")
         // Fallback: Client Credentials (only works for albums, not playlists)
         return getClientCredentialsToken()
     }
