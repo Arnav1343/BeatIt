@@ -309,26 +309,39 @@ object SpotifyClient {
      * Fetch the current user's playlists.
      * Requires user to be connected via SpotifyAuth.
      */
-    fun getUserPlaylists(): List<Map<String, Any?>> {
-        val playlists = mutableListOf<Map<String, Any?>>()
+    data class PlaylistInfo(
+        val id: String?,
+        val name: String,
+        val trackCount: Int,
+        val thumbnail: String?,
+        val owner: String,
+        val url: String
+    )
+
+    fun getUserPlaylists(): List<PlaylistInfo> {
+        val playlists = mutableListOf<PlaylistInfo>()
         var url: String? = "$API_BASE/me/playlists?limit=50"
 
         while (url != null && playlists.size < 200) {
             val body = apiGet(url)
+            Log.d(TAG, "Playlists response (first 500 chars): ${body.take(500)}")
             val page = gson.fromJson(body, PlaylistsPage::class.java)
 
             page.items?.forEach { p ->
                 val thumb = p.images?.firstOrNull()?.url
                 val spotifyUrl = p.externalUrls?.get("spotify")
                     ?: "https://open.spotify.com/playlist/${p.id}"
+                val count = p.tracks?.total ?: 0
 
-                playlists.add(mapOf(
-                    "id" to p.id,
-                    "name" to (p.name ?: "Untitled"),
-                    "trackCount" to (p.tracks?.total ?: 0),
-                    "thumbnail" to thumb,
-                    "owner" to (p.owner?.displayName ?: ""),
-                    "url" to spotifyUrl
+                Log.d(TAG, "Playlist: ${p.name}, tracks.total=${p.tracks?.total}, count=$count")
+
+                playlists.add(PlaylistInfo(
+                    id = p.id,
+                    name = p.name ?: "Untitled",
+                    trackCount = count,
+                    thumbnail = thumb,
+                    owner = p.owner?.displayName ?: "",
+                    url = spotifyUrl
                 ))
             }
 
