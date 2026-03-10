@@ -165,14 +165,14 @@ object SpotifyClient {
         val response = http.newCall(request).execute()
         if (!response.isSuccessful) {
             val errorBody = response.body?.string() ?: ""
-            Log.e(TAG, "Spotify API error: HTTP ${response.code} for $url, body: ${errorBody.take(300)}")
+            Log.e(TAG, "Spotify API error: HTTP ${response.code} for $url, body: ${errorBody.take(500)}")
             if (response.code == 401) {
+                // Token expired — clear cached token
+                cachedOAuthToken = null
                 throw IOException("Spotify session expired. Please reconnect.")
             }
-            if (response.code == 403) {
-                throw IOException("This playlist requires Spotify login. Go to Menu \u2192 Spotify to connect your account.")
-            }
-            throw IOException("Spotify API error: ${response.code}")
+            // Show full error details for debugging
+            throw IOException("Spotify ${response.code}: ${errorBody.take(200)}")
         }
         return response.body?.string() ?: throw IOException("Empty API response")
     }
