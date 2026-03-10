@@ -235,43 +235,64 @@ object SpotifyClient {
     }
 
     /**
-     * Fetch all tracks from a Spotify playlist.
-     * Handles pagination automatically (up to 500 tracks).
+     * Fetch all tracks from a Spotify playlist using the embed page.
+     * This bypasses the official API (which returns 403 in Development Mode)
+     * by scraping the __NEXT_DATA__ JSON from the embed page.
      */
     fun getPlaylistTracks(playlistId: String): List<TrackCandidate> {
         val tracks = mutableListOf<TrackCandidate>()
 
-        var url: String? = "$API_BASE/playlists/$playlistId/tracks?limit=100"
+        val embedUrl = "https://open.spotify.com/embed/playlist/$playlistId"
+        Log.d(TAG, "Fetching playlist via embed: $embedUrl")
 
-        while (url != null && tracks.size < 500) {
-            val body = apiGet(url)
-            Log.d(TAG, "Playlist API response (first 300 chars): ${body.take(300)}")
-            val page = gson.fromJson(body, TracksPage::class.java)
-            Log.d(TAG, "Parsed page: ${page.items?.size ?: 0} items, next=${page.next != null}")
+        val request = Request.Builder()
+            .url(embedUrl)
+            .header("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36")
+            .build()
+        val response = http.newCall(request).execute()
 
-            page.items?.forEach { item ->
-                val t = item.track ?: return@forEach
-                val name = t.name ?: return@forEach
-                val artist = t.artists?.mapNotNull { it.name }?.joinToString(", ") ?: "Unknown"
-                val durationSec = t.durationMs?.let { it / 1000 }
-                val thumb = t.album?.images
-                    ?.sortedByDescending { it.height ?: 0 }
-                    ?.firstOrNull()?.url
-
-                tracks.add(TrackCandidate(
-                    title = name,
-                    artist = artist,
-                    durationSeconds = durationSec,
-                    thumbnailUrl = thumb,
-                    sourcePlatform = SourcePlatform.SPOTIFY
-                ))
-            }
-
-            url = page.next
+        if (!response.isSuccessful) {
+            throw IOException("Embed page failed: HTTP ${response.code}")
         }
 
-        Log.d(TAG, "Fetched ${tracks.size} tracks from playlist $playlistId")
-        return tracks.take(500)
+        val html = response.body?.string() ?: throw IOException("Empty embed response")
+
+        // Extract __NEXT_DATA__ JSON from the HTML
+        val regex = Regex("""<script id="__NEXT_DATA__"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+        val match = regex.find(html) ?: throw IOException("Could not find track data in embed page")
+
+        val root = com.google.gson.JsonParser.parseString(match.groupValues[1]).asJsonObject
+        val entity = root
+            .getAsJsonObject("props")
+            ?.getAsJsonObject("pageProps")
+            ?.getAsJsonObject("state")
+            ?.getAsJsonObject("data")
+            ?.getAsJsonObject("entity")
+
+        if (entity == null) {
+            throw IOException("Could not parse embed data structure")
+        }
+
+        val trackList = entity.getAsJsonArray("trackList") ?: throw IOException("No trackList in embed data")
+
+        for (item in trackList) {
+            val obj = item.asJsonObject
+            val title = obj.get("title")?.asString ?: continue
+            val artist = obj.get("subtitle")?.asString ?: "Unknown"
+            val durationMs = obj.get("duration")?.asLong ?: 0
+            val durationSec = if (durationMs > 0) (durationMs / 1000).toInt() else null
+
+            tracks.add(TrackCandidate(
+                title = title,
+                artist = artist,
+                durationSeconds = durationSec,
+                thumbnailUrl = null,
+                sourcePlatform = SourcePlatform.SPOTIFY
+            ))
+        }
+
+        Log.d(TAG, "Fetched ${tracks.size} tracks from playlist embed $playlistId")
+        return tracks
     }
 
     /**
