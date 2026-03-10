@@ -693,6 +693,16 @@
             spotifyPlaylists = Array.isArray(d) ? d : (d.items || d.playlists || []);
             spotifyIndex = 0;
             renderSpotifyPlaylists();
+            // Debug: fetch raw first item JSON from backend
+            try {
+                const dr = await fetch('/api/spotify/debug');
+                const dd = await dr.json();
+                if (!dd.error) {
+                    const allKeys = Object.keys(dd).join(', ');
+                    const hasTracksKey = 'tracks' in dd;
+                    showToast('RawKeys: ' + allKeys + ' | hasTracks=' + hasTracksKey);
+                }
+            } catch(e2) {}
         } catch(e) { $('#spotifyPlaylistList').innerHTML = '<div class="library-empty">Failed: ' + e.message + '</div>'; }
     }
 

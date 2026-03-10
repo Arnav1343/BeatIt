@@ -322,13 +322,16 @@ object SpotifyClient {
         val url: String
     )
 
+    // Debug: store the raw JSON of the first playlist so we can see what Spotify actually sends
+    var lastDebugFirstItem: String? = null
+
     fun getRawUserPlaylists(): String {
         return apiGet("$API_BASE/me/playlists?limit=5")
     }
 
     fun getUserPlaylists(): List<PlaylistInfo> {
         val playlists = mutableListOf<PlaylistInfo>()
-        var url: String? = "$API_BASE/me/playlists?limit=50&fields=items(id,name,images,owner(display_name),tracks(total),external_urls),next"
+        var url: String? = "$API_BASE/me/playlists?limit=50"
 
         while (url != null && playlists.size < 200) {
             val body = apiGet(url)
@@ -338,8 +341,14 @@ object SpotifyClient {
             val root = com.google.gson.JsonParser.parseString(body).asJsonObject
             val items = root.getAsJsonArray("items") ?: continue
 
-            for (item in items) {
+            for ((idx, item) in items.withIndex()) {
                 val obj = item.asJsonObject
+
+                // Save first item's full JSON for debugging
+                if (playlists.isEmpty() && idx == 0) {
+                    lastDebugFirstItem = obj.toString()
+                    Log.d(TAG, "FULL FIRST ITEM JSON: ${obj.toString()}")
+                }
 
                 val id = obj.get("id")?.asString
                 val name = obj.get("name")?.asString ?: "Untitled"

@@ -312,14 +312,11 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
     }
 
     private fun handleSpotifyDebug(): Response {
-        if (!SpotifyAuth.isConnected()) {
-            return jsonError("Not connected to Spotify")
-        }
-        return try {
-            val raw = SpotifyClient.getRawUserPlaylists()
+        val raw = SpotifyClient.lastDebugFirstItem
+        return if (raw != null) {
             newFixedLengthResponse(Response.Status.OK, "application/json", raw)
-        } catch (e: Exception) {
-            jsonError(e.message ?: "Debug failed")
+        } else {
+            jsonError("No debug data yet. Open Spotify playlists first.")
         }
     }
 
