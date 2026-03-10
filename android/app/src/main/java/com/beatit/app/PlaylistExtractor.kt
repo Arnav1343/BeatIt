@@ -67,13 +67,9 @@ object PlaylistExtractor {
     )
 
     private fun extractSpotify(url: String): List<TrackCandidate> {
-        // Check if user is connected to Spotify
-        if (!SpotifyAuth.isConnected()) {
-            Log.e(TAG, "Spotify not connected — user needs to log in first")
-            throw IOException("Connect your Spotify account first. Go to Menu → Spotify.")
-        }
-
-        // Use the Spotify Web API with the user's OAuth token
+        // SpotifyClient handles auth: uses OAuth if connected, falls back to Client Credentials.
+        // Client Credentials work for albums but NOT playlists (Spotify returns 403).
+        // If a playlist is requested without OAuth, the user gets a clear error message.
         try {
             Log.d(TAG, "Attempting Spotify API extraction for: $url")
             val tracks = SpotifyClient.getTracks(url)
@@ -84,7 +80,7 @@ object PlaylistExtractor {
             Log.w(TAG, "Spotify API returned 0 tracks — playlist may be empty")
         } catch (e: Exception) {
             Log.e(TAG, "Spotify API failed: ${e.message}", e)
-            throw IOException("Spotify API error: ${e.message}")
+            throw IOException(e.message ?: "Spotify extraction failed")
         }
 
         return emptyList()

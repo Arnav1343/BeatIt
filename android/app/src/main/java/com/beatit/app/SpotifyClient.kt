@@ -14,12 +14,18 @@ import java.util.concurrent.TimeUnit
 object SpotifyClient {
     private const val TAG = "SpotifyClient"
     private const val API_BASE = "https://api.spotify.com/v1"
+    private const val CLIENT_ID = "781875772a3a48aa9bf2f18af745e4c0"
+    private const val CLIENT_SECRET = "f22d881d91f7448fa1c4e5c36a336a14"
 
     private val gson = Gson()
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
+
+    // Cached Client Credentials token
+    private var ccToken: String? = null
+    private var ccTokenExpiresAt: Long = 0
 
     // ── Data classes for API responses ──────────────────────────────
 
@@ -90,9 +96,51 @@ object SpotifyClient {
 
     // ── API Helpers ─────────────────────────────────────────────────
 
+    /**
+     * Get an access token. Tries OAuth user token first, falls back to Client Credentials.
+     * Client Credentials only work for albums, search, etc. — NOT playlists.
+     */
+    private fun getToken(): String {
+        // Prefer OAuth user token (works for everything including playlists)
+        val userToken = SpotifyAuth.getAccessToken()
+        if (userToken != null) return userToken
+
+        // Fallback: Client Credentials (only works for albums, not playlists)
+        return getClientCredentialsToken()
+    }
+
+    @Synchronized
+    private fun getClientCredentialsToken(): String {
+        if (ccToken != null && System.currentTimeMillis() < ccTokenExpiresAt - 60_000) {
+            return ccToken!!
+        }
+
+        val credentials = okhttp3.Credentials.basic(CLIENT_ID, CLIENT_SECRET)
+        val body = FormBody.Builder()
+            .add("grant_type", "client_credentials")
+            .build()
+        val request = Request.Builder()
+            .url("https://accounts.spotify.com/api/token")
+            .header("Authorization", credentials)
+            .post(body)
+            .build()
+
+        val response = http.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+        if (!response.isSuccessful) {
+            Log.e(TAG, "Client Credentials token failed: ${response.code}")
+            throw IOException("Spotify authentication failed")
+        }
+
+        val json = gson.fromJson(responseBody, SpotifyAuth.TokenResponse::class.java)
+        ccToken = json.accessToken
+        ccTokenExpiresAt = System.currentTimeMillis() + json.expiresIn * 1000L
+        Log.d(TAG, "Got Client Credentials token, expires in ${json.expiresIn}s")
+        return json.accessToken
+    }
+
     private fun apiGet(url: String): String {
-        val token = SpotifyAuth.getAccessToken()
-            ?: throw IOException("Not connected to Spotify. Please log in first.")
+        val token = getToken()
 
         val request = Request.Builder()
             .url(url)
@@ -104,6 +152,9 @@ object SpotifyClient {
             Log.e(TAG, "Spotify API error: HTTP ${response.code} for $url, body: ${errorBody.take(300)}")
             if (response.code == 401) {
                 throw IOException("Spotify session expired. Please reconnect.")
+            }
+            if (response.code == 403) {
+                throw IOException("This playlist requires Spotify login. Go to Menu \u2192 Spotify to connect your account.")
             }
             throw IOException("Spotify API error: ${response.code}")
         }
