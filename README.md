@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arnav1343/BeatIt.apk/raw/main/BeatIt.apk">
+  <a href="https://github.com/Arnav1343/BeatIt/raw/main/BeatIt.apk">
     <img src="https://img.shields.io/badge/Download-APK-FF2D78?style=for-the-badge&logo=android&logoColor=white" alt="Download APK"/>
   </a>
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform"/>
@@ -52,7 +52,7 @@
 
 ### Download & Install
 
-1. **Download** the latest APK from the [Releases](https://github.com/Arnav1343/BeatIt.apk/raw/main/BeatIt.apk)
+1. **Download** the latest APK from the [Releases](https://github.com/Arnav1343/BeatIt/raw/main/BeatIt.apk)
 2. **Enable** "Install from unknown sources" in Android Settings
 3. **Install** and open BeatIt
 
@@ -121,8 +121,8 @@ BeatIt runs as a **self-contained Android app** with a local web server powering
 
 ```bash
 # Clone the repository
-git clone https://github.com/Arnav1343/BeatIt.apk.git
-cd BeatIt.apk
+git clone https://github.com/Arnav1343/BeatIt.git
+cd BeatIt
 
 # Build debug APK
 cd android
