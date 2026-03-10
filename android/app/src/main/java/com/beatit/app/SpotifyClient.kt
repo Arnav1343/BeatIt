@@ -96,16 +96,28 @@ object SpotifyClient {
 
     // ── API Helpers ─────────────────────────────────────────────────
 
+    // Cache the last successful OAuth token in memory as a fallback
+    // (SharedPreferences reads can intermittently return null on different threads)
+    private var cachedOAuthToken: String? = null
+
     /**
-     * Get an access token. Tries OAuth user token first, falls back to Client Credentials.
-     * Client Credentials only work for albums, search, etc. — NOT playlists.
+     * Get an access token. Tries OAuth user token first, falls back to cached token,
+     * then to Client Credentials. Client Credentials only work for albums — NOT playlists.
      */
     private fun getToken(): String {
-        // Prefer OAuth user token (works for everything including playlists)
+        // Prefer fresh OAuth user token
         val userToken = SpotifyAuth.getAccessToken()
         if (userToken != null) {
+            cachedOAuthToken = userToken  // cache for future use
             Log.d(TAG, "getToken: using OAuth user token")
             return userToken
+        }
+
+        // Use cached OAuth token if available (handles intermittent SharedPreferences failures)
+        val cached = cachedOAuthToken
+        if (cached != null) {
+            Log.d(TAG, "getToken: using cached OAuth token")
+            return cached
         }
 
         Log.d(TAG, "getToken: no OAuth token, falling back to Client Credentials")
