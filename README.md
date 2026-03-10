@@ -121,8 +121,8 @@ BeatIt runs as a **self-contained Android app** with a local web server powering
 
 ```bash
 # Clone the repository
-git clone https://github.com/Arnav1343/Test.git
-cd Test
+git clone https://github.com/Arnav1343/BeatIt.apk.git
+cd BeatIt.apk
 
 # Build debug APK
 cd android
