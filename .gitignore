@@ -21,7 +21,3 @@ android/app/build/
 android/build/
 *.apk
 *.aab
-
-# JVM crash logs
-hs_err_pid*.log
-replay_pid*.log
