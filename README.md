@@ -9,6 +9,9 @@
 </p>
 
 <p align="center">
+  <a href="https://arnav1343.github.io/BeatIt/">
+    <img src="https://img.shields.io/badge/🌐_Website-Live-FF2D78?style=for-the-badge" alt="Website"/>
+  </a>
   <a href="https://github.com/Arnav1343/BeatIt/raw/main/BeatIt.apk">
     <img src="https://img.shields.io/badge/Download-APK-FF2D78?style=for-the-badge&logo=android&logoColor=white" alt="Download APK"/>
   </a>
