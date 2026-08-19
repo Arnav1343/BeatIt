@@ -130,6 +130,15 @@ class MainActivity : Activity() {
         }
     }
 
+    // Counteract WebView's implicit pause of timers/media when the Activity
+    // stops (minimized/switched away) — without this, Chromium suspends the
+    // <audio> element's playback along with everything else on the page.
+    override fun onStop() {
+        super.onStop()
+        webView.onResume()
+        webView.resumeTimers()
+    }
+
     // Don't stop the service on destroy — let it keep running for downloads
     override fun onDestroy() {
         super.onDestroy()
