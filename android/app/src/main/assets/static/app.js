@@ -23,6 +23,35 @@
         actionMenu: $('#viewActionMenu')
     };
     const audio = $('#audioPlayer');
+
+    // ─── Media Session ────────────────────────────────────────────
+    // Without this, Chromium treats the WebView as a background tab with
+    // no active media and is free to suspend <audio> playback once the
+    // app is no longer in the foreground. Registering a session tells
+    // Android this is real media playback that should keep running.
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', () => togglePlay());
+        navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+        navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
+        navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime != null && audio.duration) audio.currentTime = details.seekTime;
+        });
+    }
+
+    function updateMediaSession() {
+        if (!('mediaSession' in navigator)) return;
+        if (currentSong) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentSong.title || 'Unknown',
+                artist: 'BeatIt',
+            });
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        } else {
+            navigator.mediaSession.playbackState = 'none';
+        }
+    }
+
     const searchInput = $('#searchInput');
     const suggestionsDropdown = $('#suggestionsDropdown');
     const searchStatus = $('#searchStatus');
@@ -514,6 +543,7 @@
             npTitle.textContent = 'No song playing'; npArtist.textContent = ''; npTrackNum.textContent = '';
             $('#viewNowPlaying').classList.remove('playing');
         }
+        updateMediaSession();
     }
 
     function togglePlay() {

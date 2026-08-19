@@ -3,9 +3,12 @@ package com.beatit.app
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import java.io.File
 
 class MusicServerService : Service() {
@@ -18,7 +21,18 @@ class MusicServerService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(1, buildNotification("BeatIt is running"))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Declare mediaPlayback so this service is exempt from the background
+            // execution limits Android imposes on plain dataSync services — that's
+            // what keeps WebView audio playback alive once the app is backgrounded.
+            ServiceCompat.startForeground(
+                this, 1, buildNotification("BeatIt is running"),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(1, buildNotification("BeatIt is running"))
+        }
 
         // Acquire a partial wake lock so downloads don't stall when screen is off
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
