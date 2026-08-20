@@ -73,7 +73,9 @@
                 durationMs: Math.round((audio.duration || 0) * 1000),
                 positionMs: Math.round((audio.currentTime || 0) * 1000),
                 playing: isPlaying,
-                hasTrack: !!currentSong
+                hasTrack: !!currentSong,
+                // Just the name — the native side resolves it to a path.
+                filename: currentSong ? currentSong.filename : ''
             }));
         } catch (e) { /* bridge missing or page tearing down */ }
     }
@@ -514,7 +516,15 @@
         downloadBtn.disabled = true; downloadStatus.textContent = 'Starting...'; downloadStatus.className = 'download-status';
         downloadProgressWrap.classList.remove('hidden'); downloadProgressFill.style.width = '0%'; downloadProgressText.textContent = '0%';
         try {
-            const payload = { url: lastSearchResult.url, title: lastSearchResult.title, quality: selectedQuality, codec: selectedCodec };
+            // Send the thumbnail too — the downloaded audio carries no embedded
+            // art, so this is the only chance to capture a cover for it.
+            const payload = {
+                url: lastSearchResult.url,
+                title: lastSearchResult.title,
+                quality: selectedQuality,
+                codec: selectedCodec,
+                thumbnail: lastSearchResult.thumbnail || ''
+            };
             const r = await fetch('/api/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const d = await r.json();
             if (d.error) { downloadStatus.textContent = d.error; downloadStatus.className = 'download-status error'; downloadProgressWrap.classList.add('hidden'); downloadBtn.disabled = false; return; }
@@ -591,6 +601,143 @@
     function libDown() { libraryIndex = Math.min(library.length - 1, libraryIndex + 1); updateLibSel(); const items = $$('.library-item'); if (items[libraryIndex]) items[libraryIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
     function libSelect() { if (library[libraryIndex]) playSong(library[libraryIndex].filename, library[libraryIndex].title); }
 
+    // ─── Cover art & colour ─────────────────────────────────────────
+    // Nothing the app downloads has embedded artwork, so covers live as
+    // sidecar files served by the local server at /api/art/<filename>.
+    // Same-origin matters: a CDN image would taint the canvas and make
+    // getImageData() throw, which is exactly what the tinting needs.
+
+    const npArtworkEl = $('#npArtwork');
+    const npPlaceholder = npArtworkEl?.querySelector('.np-artwork-placeholder');
+    let npArtImg = null;              // reused, never re-created, to avoid reflow/flicker
+    let lastArtKey = null;            // updateNowPlaying() fires on every play/pause too
+    const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+
+    function setTint(a, b, c, accent) {
+        const root = document.documentElement.style;
+        root.setProperty('--tint-a', a);
+        root.setProperty('--tint-b', b);
+        root.setProperty('--tint-c', c);
+        if (accent) {
+            root.setProperty('--accent', accent);
+            root.setProperty('--accent-fill', 'linear-gradient(90deg,' + accent + ',' + accent + '99)');
+        }
+    }
+
+    /** Relative luminance, for the contrast guard below. */
+    function luminance(r, g, b) {
+        const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    }
+
+    function parseRgb(css) {
+        const m = css.match(/(\d+),\s*(\d+),\s*(\d+)/);
+        return m ? [+m[1], +m[2], +m[3]] : [240, 240, 240];
+    }
+
+    /**
+     * Art can be any colour, including one that vanishes against the
+     * current theme's text. Fall back to the theme accent rather than
+     * shipping unreadable text.
+     */
+    function accentIsLegible(r, g, b) {
+        const textRgb = parseRgb(getComputedStyle(document.documentElement).getPropertyValue('color') ||
+            getComputedStyle(document.body).color);
+        const l1 = luminance(r, g, b), l2 = luminance(textRgb[0], textRgb[1], textRgb[2]);
+        const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+        return ratio >= 1.6;
+    }
+
+    /** Stable pseudo-colour for tracks with no art, so each still feels distinct. */
+    function hashTint(title) {
+        let h = 0;
+        for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
+        const hue = h % 360;
+        return [
+            `hsla(${hue},70%,45%,0.38)`,
+            `hsla(${(hue + 40) % 360},65%,40%,0.30)`,
+            `hsla(${(hue + 310) % 360},60%,35%,0.24)`
+        ];
+    }
+
+    function applyHashFallback(title) {
+        const [a, b, c] = hashTint(title || 'BeatIt');
+        setTint(a, b, c, null);
+        if (npArtImg) npArtImg.classList.add('hidden');
+        if (npPlaceholder) npPlaceholder.classList.remove('hidden');
+    }
+
+    /** Pull 3 dominant colours out of the artwork and push them into CSS. */
+    function extractTint(img, title) {
+        try {
+            const N = 8;
+            const cv = document.createElement('canvas');
+            cv.width = N; cv.height = N;
+            const ctx = cv.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, N, N);
+            const data = ctx.getImageData(0, 0, N, N).data;   // throws if tainted
+
+            const buckets = [];
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                if (max < 28 || min > 232) continue;          // skip near-black / near-white
+                buckets.push({ r, g, b, sat: max - min, lum: luminance(r, g, b) });
+            }
+            if (!buckets.length) { applyHashFallback(title); return; }
+
+            buckets.sort((x, y) => y.sat - x.sat);
+            const pick = i => buckets[Math.min(i, buckets.length - 1)];
+            const p0 = pick(0), p1 = pick(Math.floor(buckets.length / 3)), p2 = pick(Math.floor(buckets.length / 2));
+            const rgba = (p, a) => `rgba(${p.r},${p.g},${p.b},${a})`;
+
+            const accent = accentIsLegible(p0.r, p0.g, p0.b)
+                ? `rgb(${p0.r},${p0.g},${p0.b})`
+                : themeAccent;
+
+            setTint(rgba(p0, 0.42), rgba(p1, 0.32), rgba(p2, 0.26), accent);
+        } catch (e) {
+            // Tainted canvas or decode failure — degrade, never break playback.
+            applyHashFallback(title);
+        }
+    }
+
+    /** Back to the plain theme when nothing is playing. */
+    function clearArtwork() {
+        lastArtKey = null;
+        setTint('transparent', 'transparent', 'transparent', themeAccent);
+        if (npArtImg) npArtImg.classList.add('hidden');
+        if (npPlaceholder) npPlaceholder.classList.remove('hidden');
+    }
+
+    function applyArtwork(filename, title) {
+        if (!npArtworkEl) return;
+        if (lastArtKey === filename) return;   // called on every play/pause; only react to track changes
+        lastArtKey = filename;
+
+        if (!npArtImg) {
+            npArtImg = document.createElement('img');
+            npArtImg.alt = '';
+            npArtworkEl.appendChild(npArtImg);
+        }
+
+        // Assume no art until it loads, so we never show a broken frame.
+        applyHashFallback(title);
+
+        const url = '/api/art/' + encodeURIComponent(filename);
+        npArtImg.onload = () => {
+            npArtImg.classList.remove('hidden');
+            if (npPlaceholder) npPlaceholder.classList.add('hidden');
+            extractTint(npArtImg, title);
+        };
+        npArtImg.onerror = () => {
+            // 404 also tells the server to go look this one up in the
+            // background; a later refresh will find it.
+            applyHashFallback(title);
+        };
+        npArtImg.src = url;
+    }
+
     function playSong(fn, title) {
         currentSong = { filename: fn, title };
         currentSongIndex = library.findIndex(s => s.filename === fn);
@@ -608,9 +755,11 @@
             npArtist.textContent = '';
             npTrackNum.textContent = currentSongIndex >= 0 && library.length > 0 ? (currentSongIndex + 1) + ' of ' + library.length : '';
             $('#viewNowPlaying').classList.toggle('playing', isPlaying);
+            applyArtwork(currentSong.filename, currentSong.title);
         } else {
             npTitle.textContent = 'No song playing'; npArtist.textContent = ''; npTrackNum.textContent = '';
             $('#viewNowPlaying').classList.remove('playing');
+            clearArtwork();
         }
         updateMediaSession();
         pushNativeState();

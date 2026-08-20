@@ -14,6 +14,7 @@ import android.os.Looper
 import android.util.Log
 import android.webkit.WebView
 import org.json.JSONObject
+import java.io.File
 
 /**
  * Lockscreen and notification transport controls.
@@ -54,8 +55,18 @@ object PlaybackSession {
     private var positionMs = 0L
     private var playing = false
     private var hasTrack = false
+    private var filename = ""
 
-    fun init(context: Context) {
+    // Cover art for the lockscreen. Decoded off the main thread and cached,
+    // because publish() runs on the main looper and BitmapFactory on a
+    // 640px JPEG is not something to do there on every state push.
+    private val artExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var artBitmap: android.graphics.Bitmap? = null
+    private var artBitmapKey: String? = null
+    private var musicDir: File? = null
+
+    fun init(context: Context, musicDirectory: File? = null) {
+        musicDir = musicDirectory ?: musicDir
         if (session != null) return
         val ctx = context.applicationContext
         appContext = ctx
@@ -102,6 +113,7 @@ object PlaybackSession {
             positionMs = o.optLong("positionMs", 0L)
             playing = o.optBoolean("playing", false)
             hasTrack = o.optBoolean("hasTrack", false)
+            filename = o.optString("filename", "")
         } catch (e: Exception) {
             Log.w(TAG, "Bad state payload: ${e.message}")
             return
@@ -134,6 +146,48 @@ object PlaybackSession {
 
     // ── Internals ───────────────────────────────────────────────────
 
+    /**
+     * Cached cover art for [name], or null if it isn't decoded yet.
+     *
+     * Never decodes inline: publish() runs on the main looper. On a miss it
+     * schedules the decode and re-publishes when the bitmap lands, so the
+     * first push of a track shows text and the next one carries the art.
+     */
+    private fun artworkFor(name: String): android.graphics.Bitmap? {
+        if (name.isEmpty()) return null
+        if (artBitmapKey == name) return artBitmap
+
+        val dir = musicDir ?: return null
+        artExecutor.submit {
+            val file = ArtworkStore.artFile(dir, name)
+            val bmp = if (file.exists()) {
+                try {
+                    // Roughly lockscreen-sized; full-res covers are wasted here.
+                    val bounds = android.graphics.BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    android.graphics.BitmapFactory.decodeFile(file.absolutePath, bounds)
+                    var sample = 1
+                    while (bounds.outWidth / sample > 512) sample *= 2
+                    android.graphics.BitmapFactory.decodeFile(
+                        file.absolutePath,
+                        android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Art decode failed for $name: ${e.message}")
+                    null
+                }
+            } else null
+
+            main.post {
+                artBitmap = bmp
+                artBitmapKey = name
+                if (bmp != null) publish()
+            }
+        }
+        return null
+    }
+
     private fun publish() {
         val s = session ?: return
 
@@ -143,11 +197,15 @@ object PlaybackSession {
             return
         }
 
+        val art = artworkFor(filename)
         s.setMetadata(
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, durationMs)
+                // A Bitmap, not an ART_URI: SystemUI is a different process
+                // and shouldn't have to reach our loopback HTTP server.
+                .apply { if (art != null) putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, art) }
                 .build()
         )
 
@@ -182,6 +240,9 @@ object PlaybackSession {
         return baseNotification()
             .setContentTitle(if (title.isNotEmpty()) title else "BeatIt")
             .setContentText(artist)
+            // MediaStyle feeds the lockscreen from session metadata, but the
+            // collapsed notification draws its own large icon.
+            .apply { artBitmap?.let { setLargeIcon(it) } }
             .addAction(action(android.R.drawable.ic_media_previous, "Previous", ACTION_PREV))
             .addAction(
                 if (playing) action(android.R.drawable.ic_media_pause, "Pause", ACTION_TOGGLE)

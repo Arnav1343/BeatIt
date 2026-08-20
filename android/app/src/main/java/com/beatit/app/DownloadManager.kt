@@ -46,12 +46,18 @@ class DownloadManager(
         .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
         .build()
 
-    fun startDownload(videoUrl: String, title: String, quality: Int, codec: String): String {
+    fun startDownload(
+        videoUrl: String,
+        title: String,
+        quality: Int,
+        codec: String,
+        thumbnailUrl: String? = null
+    ): String {
         val taskId = UUID.randomUUID().toString()
         tasks[taskId] = TaskStatus("extracting", 0)
 
         executor.submit {
-            runDownload(taskId, videoUrl, title, quality, codec)
+            runDownload(taskId, videoUrl, title, quality, codec, thumbnailUrl)
         }
         return taskId
     }
@@ -66,7 +72,14 @@ class DownloadManager(
         }
     }
 
-    private fun runDownload(taskId: String, videoUrl: String, title: String, quality: Int, codec: String) {
+    private fun runDownload(
+        taskId: String,
+        videoUrl: String,
+        title: String,
+        quality: Int,
+        codec: String,
+        thumbnailUrl: String? = null
+    ) {
         val extension = if (codec == "opus") "opus" else "mp3"
         val finalFile = File(musicDir, "${sanitize(title)}.$extension")
         val tempFile = File(musicDir, "${sanitize(title)}.$extension.tmp")
@@ -84,6 +97,14 @@ class DownloadManager(
 
             // Step 3: Move temp file to final location (now it appears in library)
             tempFile.renameTo(finalFile)
+
+            // Step 4: Save the cover art beside it. Strictly best-effort —
+            // the download has already succeeded and must not be failed by it.
+            try {
+                ArtworkStore.saveFrom(thumbnailUrl, musicDir, finalFile.name)
+            } catch (e: Exception) {
+                android.util.Log.w("DownloadManager", "Artwork save failed: ${e.message}")
+            }
 
             val sizeHuman = humanSize(finalFile.length())
             tasks[taskId] = TaskStatus(

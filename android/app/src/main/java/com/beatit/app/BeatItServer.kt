@@ -33,6 +33,7 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 method == Method.POST && uri == "/api/import/action" -> handleImportAction(session)
                 uri == "/api/library" -> handleLibrary()
                 uri.startsWith("/api/music/") -> handleMusic(uri)
+                uri.startsWith("/api/art/") -> handleArt(uri)
                 method == Method.POST && uri == "/api/delete" -> handleDelete(session)
                 else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
             }
@@ -96,8 +97,12 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
         val title = map["title"] as? String ?: "Unknown"
         val quality = (map["quality"] as? Double)?.toInt() ?: 192
         val codec = map["codec"] as? String ?: "mp3"
+        // The page already has the YouTube thumbnail from the search result;
+        // this is the only chance to capture it, since nothing downstream
+        // re-queries and the audio file carries no embedded art.
+        val thumbnail = map["thumbnail"] as? String
 
-        val taskId = downloadManager.startDownload(url, title, quality, codec)
+        val taskId = downloadManager.startDownload(url, title, quality, codec, thumbnail)
         return jsonOk(mapOf("task_id" to taskId))
     }
 
@@ -125,7 +130,11 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                     "filename" to f.name,
                     "title" to f.nameWithoutExtension,
                     "size_human" to humanSize(f.length()),
-                    "codec" to if (f.extension == "mp3") "mp3" else "opus"
+                    "codec" to if (f.extension == "mp3") "mp3" else "opus",
+                    // Null when there is no sidecar, so the page can fall back
+                    // to its placeholder instead of requesting a known 404.
+                    "art" to if (ArtworkStore.hasArt(musicDir, f.name))
+                        "/api/art/" + java.net.URLEncoder.encode(f.name, "UTF-8") else null
                 )
             } ?: emptyList()
         return jsonOk(files)
@@ -141,6 +150,29 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
         return newChunkedResponse(Response.Status.OK, mime, FileInputStream(file))
     }
 
+    // ── API: Artwork ────────────────────────────────────────────────
+
+    /**
+     * Serves cover art from the local server so the page can read its pixels.
+     * A remote CDN image would taint the canvas and make getImageData() throw,
+     * which is what the colour tinting depends on — so this must stay
+     * same-origin.
+     */
+    private fun handleArt(uri: String): Response {
+        val filename = java.net.URLDecoder.decode(uri.removePrefix("/api/art/"), "UTF-8")
+            .replace("..", "")
+        val file = ArtworkStore.artFile(musicDir, filename)
+        if (!file.exists()) {
+            // Nothing yet — kick off a lookup and answer immediately. The next
+            // library refresh picks it up; the request itself never waits.
+            if (File(musicDir, filename).exists()) {
+                ArtworkStore.enqueueLookup(musicDir, filename, youtubeHelper)
+            }
+            return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "No art")
+        }
+        return newChunkedResponse(Response.Status.OK, "image/jpeg", FileInputStream(file))
+    }
+
     // ── API: Delete ─────────────────────────────────────────────────
 
     private fun handleDelete(session: IHTTPSession): Response {
@@ -149,6 +181,9 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
         val filename = map["filename"] as? String ?: return jsonError("No filename")
         val file = File(musicDir, filename)
         val deleted = file.delete()
+        // Sidecars must go too. sanitize() truncates titles at 80 chars, so a
+        // later song can land on the same base name and inherit stale art.
+        ArtworkStore.deleteFor(musicDir, filename)
         return jsonOk(mapOf("success" to deleted))
     }
 

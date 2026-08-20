@@ -176,6 +176,14 @@ object BatchManager {
             }
             
             if (tempFile.renameTo(finalFile)) {
+                // Cover art comes free on this path — thumbnailUrl was captured
+                // during extraction. Best-effort; never fails the track.
+                try {
+                    ArtworkStore.saveFrom(track.thumbnailUrl, musicDir, finalFile.name)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Artwork save failed for ${track.title}: ${e.message}")
+                }
+
                 track.status = TrackStatus.COMPLETED
                 track.updatedAt = System.currentTimeMillis()
                 runBlocking { dao.updateTrack(track) }

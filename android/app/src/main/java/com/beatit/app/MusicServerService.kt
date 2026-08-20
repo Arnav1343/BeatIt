@@ -21,7 +21,13 @@ class MusicServerService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        PlaybackSession.init(this)
+
+        // Same directory BeatItServer resolves to; PlaybackSession needs it to
+        // find cover art for the lockscreen.
+        val musicDir = getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC)
+            ?: File(filesDir, "Music")
+
+        PlaybackSession.init(this, musicDir)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Declare mediaPlayback so this service is exempt from the background
             // execution limits Android imposes on plain dataSync services — that's
@@ -40,8 +46,6 @@ class MusicServerService : Service() {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BeatIt::DownloadLock")
         wakeLock?.acquire()
 
-        val musicDir = getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC) 
-            ?: File(filesDir, "Music")
         BatchManager.init(this, musicDir)
 
         server = BeatItServer(this, 8080)
