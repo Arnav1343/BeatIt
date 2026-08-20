@@ -183,13 +183,17 @@
         if (name === 'batchDetail') { refreshBatchDetail(); batchDetailPollInterval = setInterval(refreshBatchDetail, 1000); }
 
         if (name === 'search') {
-            searchInput.focus();
             if (activeDownloadTaskId) {
+                // A download is still running — show its progress rather than
+                // wiping the view out from under it.
                 downloadProgressWrap.classList.remove('hidden');
                 downloadBtn.disabled = true;
                 downloadStatus.textContent = 'Downloading...';
                 if (activeDownloadTitle) { resultTitle.textContent = activeDownloadTitle; searchResult.classList.remove('hidden'); }
+            } else {
+                resetSearchView();
             }
+            searchInput.focus();
         }
         if (name === 'nowplaying') updateNowPlaying();
 
@@ -323,12 +327,18 @@
         resultMeta.textContent = (item.artist || '') + '  ·  ' + formatDuration(item.duration);
         searchResult.classList.remove('hidden');
         searchStatus.textContent = '✓ Found';
+        searchStatus.className = 'search-status';
         downloadBtn.disabled = false;
         updateQualitySizes(item.duration || 0);
     }
 
     searchInput.addEventListener('input', () => {
         const q = searchInput.value.trim();
+        // Editing the query invalidates whatever the last attempt reported.
+        // This is what strands "No results found" on screen after a search
+        // made with no connection, once the network comes back.
+        clearSearchStatus();
+        if (!activeDownloadTaskId) searchResult.classList.add('hidden');
         if (q.length < 2) { hideSuggestions(); return; }
         if (suggestDebounce) clearTimeout(suggestDebounce);
         suggestDebounce = setTimeout(async () => {
@@ -363,6 +373,33 @@
         } else if (e.key === 'Enter') { doSearch(); }
     });
 
+    /** Clear any status text left over from a previous attempt. */
+    function clearSearchStatus() {
+        searchStatus.textContent = '';
+        searchStatus.className = 'search-status';
+    }
+
+    /**
+     * Return the search view to a clean slate. Without this, whatever was on
+     * screen last time survives — a finished download's "✓ Saved", a stale
+     * result panel, or a "No results found" from an attempt made offline.
+     */
+    function resetSearchView() {
+        hideSuggestions();
+        searchInput.value = '';
+        clearSearchStatus();
+        searchResult.classList.add('hidden');
+        downloadStatus.textContent = '';
+        downloadStatus.className = 'download-status';
+        downloadProgressWrap.classList.add('hidden');
+        downloadProgressFill.style.width = '0%';
+        downloadProgressFill.classList.remove('paused');
+        downloadProgressText.textContent = '';
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download Audio';
+        lastSearchResult = null;
+    }
+
     async function doSearch() {
         const q = searchInput.value.trim(); if (!q) return;
         hideSuggestions();
@@ -378,7 +415,9 @@
             resultTitle.textContent = d.title;
             resultMeta.textContent = (d.uploader || d.artist || '') + '  ·  ' + formatDuration(d.duration || 0);
             searchResult.classList.remove('hidden');
-            searchStatus.textContent = '✓ Found'; downloadBtn.disabled = false;
+            searchStatus.textContent = '✓ Found';
+            searchStatus.className = 'search-status';
+            downloadBtn.disabled = false;
             updateQualitySizes(d.duration || 0);
         } catch {
             searchStatus.textContent = 'Search failed'; searchStatus.className = 'search-status error-text'; showToast('Failed', 'error');
