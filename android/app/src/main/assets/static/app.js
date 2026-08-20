@@ -57,6 +57,38 @@
         }
     }
 
+    // ─── Native transport controls (lockscreen / notification) ─────
+    // Because WebView has no Media Session API, the native side owns the
+    // MediaSession instead. State goes out through the AndroidMedia bridge;
+    // commands come back in by calling window.BeatItRemote. Absent on the
+    // desktop build, where the real Media Session API above does the job.
+    let lastNativePush = 0;
+
+    function pushNativeState() {
+        if (!window.AndroidMedia) return;
+        try {
+            window.AndroidMedia.updateState(JSON.stringify({
+                title: currentSong ? (currentSong.title || 'Unknown') : '',
+                artist: 'BeatIt',
+                durationMs: Math.round((audio.duration || 0) * 1000),
+                positionMs: Math.round((audio.currentTime || 0) * 1000),
+                playing: isPlaying,
+                hasTrack: !!currentSong
+            }));
+        } catch (e) { /* bridge missing or page tearing down */ }
+    }
+
+    window.BeatItRemote = {
+        play() { if (!isPlaying) togglePlay(); },
+        pause() { if (isPlaying) togglePlay(); },
+        toggle() { togglePlay(); },
+        next() { nextTrack(); },
+        prev() { prevTrack(); },
+        seek(ms) {
+            if (audio.duration) { audio.currentTime = ms / 1000; pushNativeState(); }
+        }
+    };
+
     const searchInput = $('#searchInput');
     const suggestionsDropdown = $('#suggestionsDropdown');
     const searchStatus = $('#searchStatus');
@@ -542,6 +574,7 @@
             $('#viewNowPlaying').classList.remove('playing');
         }
         updateMediaSession();
+        pushNativeState();
     }
 
     function togglePlay() {
@@ -691,6 +724,11 @@
         if (npProgressKnob) npProgressKnob.style.left = pct + '%';
         npTimeElapsed.textContent = fmt(audio.currentTime);
         npTimeTotal.textContent = '-' + fmt(audio.duration - audio.currentTime);
+
+        // Keep the lockscreen scrubber roughly in step without spamming the
+        // bridge on every timeupdate.
+        const now = Date.now();
+        if (now - lastNativePush > 1000) { lastNativePush = now; pushNativeState(); }
     });
 
     audio.addEventListener('ended', () => { isPlaying = false; if (isRepeat) { audio.currentTime = 0; audio.play().catch(() => { }); isPlaying = true; updateNowPlaying(); } else nextTrack(); });

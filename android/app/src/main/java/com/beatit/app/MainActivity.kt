@@ -50,6 +50,12 @@ class MainActivity : Activity() {
         webView.isFocusableInTouchMode = true
         webView.requestFocus()
 
+        // Lockscreen / notification transport controls. Registered before the
+        // first loadUrl so the page always sees it, including on the
+        // onReceivedError reload path.
+        webView.addJavascriptInterface(MediaBridge(), "AndroidMedia")
+        PlaybackSession.attachWebView(webView)
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?, request: WebResourceRequest?
@@ -87,8 +93,12 @@ class MainActivity : Activity() {
         }
     }
 
-    // Don't stop the service on destroy — let it keep running for downloads
+    // Don't stop the service on destroy — let it keep running for downloads.
+    // Playback does go away with the WebView though (the <audio> element lives
+    // in the page), so hand back the session rather than leaving a media
+    // notification whose buttons would no-op.
     override fun onDestroy() {
+        PlaybackSession.detachWebView()
         super.onDestroy()
     }
 }

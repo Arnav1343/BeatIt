@@ -21,6 +21,7 @@ class MusicServerService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        PlaybackSession.init(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Declare mediaPlayback so this service is exempt from the background
             // execution limits Android imposes on plain dataSync services — that's
@@ -48,11 +49,15 @@ class MusicServerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Notification transport buttons come back in as service actions,
+        // which avoids needing a separate exported receiver.
+        PlaybackSession.handleAction(intent?.action)
         // If the system kills and restarts, keep the service running
         return START_STICKY
     }
 
     override fun onDestroy() {
+        PlaybackSession.release()
         server?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         super.onDestroy()
@@ -84,6 +89,7 @@ class MusicServerService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "beatit_service"
+        const val CHANNEL_ID = "beatit_service"
+        const val NOTIF_ID = 1
     }
 }

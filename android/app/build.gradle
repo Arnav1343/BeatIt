@@ -12,8 +12,8 @@ android {
         applicationId "com.beatit.app"
         minSdk 26
         targetSdk 34
-        versionCode 5
-        versionName "1.4-imefix"
+        versionCode 6
+        versionName "1.5-mediacontrols"
     }
 
     buildTypes {
