@@ -42,6 +42,14 @@ class MainActivity : Activity() {
             mediaPlaybackRequiresUserGesture = false
         }
 
+        // The WebView has to hold Android focus for the IME to attach to it.
+        // Without this, tapping a text field focuses the element inside the
+        // page but no keyboard appears — the system keeps serving the
+        // DecorView instead, so showSoftInput() silently does nothing.
+        webView.isFocusable = true
+        webView.isFocusableInTouchMode = true
+        webView.requestFocus()
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?, request: WebResourceRequest?
