@@ -67,17 +67,16 @@ object PlaylistExtractor {
     )
 
     private fun extractSpotify(url: String): List<TrackCandidate> {
-        // SpotifyClient handles auth: uses OAuth if connected, falls back to Client Credentials.
-        // Client Credentials work for albums but NOT playlists (Spotify returns 403).
-        // If a playlist is requested without OAuth, the user gets a clear error message.
+        // SpotifyClient scrapes the public embed pages — no account, no token,
+        // no API. Playlists and albums both work for every user.
         try {
-            Log.d(TAG, "Attempting Spotify API extraction for: $url")
+            Log.d(TAG, "Attempting Spotify embed extraction for: $url")
             val tracks = SpotifyClient.getTracks(url)
             if (tracks.isNotEmpty()) {
-                Log.d(TAG, "Spotify API returned ${tracks.size} tracks")
+                Log.d(TAG, "Spotify embed returned ${tracks.size} tracks")
                 return tracks
             }
-            Log.w(TAG, "Spotify API returned 0 tracks — playlist may be empty")
+            Log.w(TAG, "Spotify embed returned 0 tracks — playlist may be empty")
         } catch (e: Exception) {
             Log.e(TAG, "Spotify API failed: ${e.message}", e)
             throw IOException(e.message ?: "Spotify extraction failed")

@@ -1,181 +1,33 @@
 package com.beatit.app
 
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import okhttp3.*
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Spotify Web API client.
- * Uses the access token provided by SpotifyAuth (OAuth PKCE flow).
+ * Spotify track extraction via the public embed pages.
+ *
+ * This deliberately does NOT use the Spotify Web API. The app's registration
+ * is in Development Mode, so api.spotify.com returns 403 for anyone who is
+ * not on the 25-user allowlist — that is, everyone who installs a public
+ * build. The embed pages carry the same track data as __NEXT_DATA__ JSON,
+ * need no credentials at all, and work for every user.
+ *
+ * Playlists and albums use the same page structure, so one parser covers
+ * both. If you are tempted to reintroduce the Web API, note that it also
+ * means shipping a client secret inside a public APK.
  */
 object SpotifyClient {
     private const val TAG = "SpotifyClient"
-    private const val API_BASE = "https://api.spotify.com/v1"
-    private const val CLIENT_ID = "781875772a3a48aa9bf2f18af745e4c0"
-    private const val CLIENT_SECRET = "f22d881d91f7448fa1c4e5c36a336a14"
 
-    private val gson = Gson()
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
-
-    // Cached Client Credentials token
-    private var ccToken: String? = null
-    private var ccTokenExpiresAt: Long = 0
-
-    // ── Data classes for API responses ──────────────────────────────
-
-    data class TracksPage(
-        val items: List<PlaylistItem>?,
-        val next: String?,
-        val total: Int?
-    )
-
-    data class PlaylistItem(
-        val track: SpotifyTrack?
-    )
-
-    // Album tracks endpoint returns items directly as SimpleTrack (no wrapper)
-    data class AlbumTracksPage(
-        val items: List<SpotifySimpleTrack>?,
-        val next: String?,
-        val total: Int?
-    )
-
-    data class SpotifySimpleTrack(
-        val name: String?,
-        val artists: List<SpotifyArtist>?,
-        @SerializedName("duration_ms") val durationMs: Int?,
-        @SerializedName("track_number") val trackNumber: Int?
-    )
-
-    data class SpotifyTrack(
-        val name: String?,
-        val artists: List<SpotifyArtist>?,
-        @SerializedName("duration_ms") val durationMs: Int?,
-        val album: SpotifyAlbum?
-    )
-
-    data class SpotifyArtist(val name: String?)
-    data class SpotifyAlbum(
-        val name: String?,
-        val images: List<SpotifyImage>?
-    )
-    data class SpotifyImage(val url: String?, val height: Int?)
-
-    // Album metadata (for getting album art)
-    data class AlbumMetadata(
-        val name: String?,
-        val images: List<SpotifyImage>?,
-        val artists: List<SpotifyArtist>?
-    )
-
-    // User playlists response
-    data class PlaylistsPage(
-        val items: List<UserPlaylist>?,
-        val next: String?,
-        val total: Int?
-    )
-
-    data class UserPlaylist(
-        val id: String?,
-        val name: String?,
-        val description: String?,
-        val images: List<SpotifyImage>?,
-        val tracks: PlaylistTrackRef?,
-        val owner: PlaylistOwner?,
-        @SerializedName("external_urls") val externalUrls: Map<String, String>?
-    )
-
-    data class PlaylistTrackRef(val total: Int?)
-    data class PlaylistOwner(@SerializedName("display_name") val displayName: String?)
-
-    // ── API Helpers ─────────────────────────────────────────────────
-
-    // Cache the last successful OAuth token in memory as a fallback
-    // (SharedPreferences reads can intermittently return null on different threads)
-    private var cachedOAuthToken: String? = null
-
-    /**
-     * Get an access token. Tries OAuth user token first, falls back to cached token,
-     * then to Client Credentials. Client Credentials only work for albums — NOT playlists.
-     */
-    private fun getToken(): String {
-        // Prefer fresh OAuth user token
-        val userToken = SpotifyAuth.getAccessToken()
-        if (userToken != null) {
-            cachedOAuthToken = userToken  // cache for future use
-            Log.d(TAG, "getToken: using OAuth user token")
-            return userToken
-        }
-
-        // Use cached OAuth token if available (handles intermittent SharedPreferences failures)
-        val cached = cachedOAuthToken
-        if (cached != null) {
-            Log.d(TAG, "getToken: using cached OAuth token")
-            return cached
-        }
-
-        Log.d(TAG, "getToken: no OAuth token, falling back to Client Credentials")
-        // Fallback: Client Credentials (only works for albums, not playlists)
-        return getClientCredentialsToken()
-    }
-
-    @Synchronized
-    private fun getClientCredentialsToken(): String {
-        if (ccToken != null && System.currentTimeMillis() < ccTokenExpiresAt - 60_000) {
-            return ccToken!!
-        }
-
-        val credentials = okhttp3.Credentials.basic(CLIENT_ID, CLIENT_SECRET)
-        val body = FormBody.Builder()
-            .add("grant_type", "client_credentials")
-            .build()
-        val request = Request.Builder()
-            .url("https://accounts.spotify.com/api/token")
-            .header("Authorization", credentials)
-            .post(body)
-            .build()
-
-        val response = http.newCall(request).execute()
-        val responseBody = response.body?.string() ?: ""
-        if (!response.isSuccessful) {
-            Log.e(TAG, "Client Credentials token failed: ${response.code}")
-            throw IOException("Spotify authentication failed")
-        }
-
-        val json = gson.fromJson(responseBody, SpotifyAuth.TokenResponse::class.java)
-        ccToken = json.accessToken
-        ccTokenExpiresAt = System.currentTimeMillis() + json.expiresIn * 1000L
-        Log.d(TAG, "Got Client Credentials token, expires in ${json.expiresIn}s")
-        return json.accessToken
-    }
-
-    private fun apiGet(url: String): String {
-        val token = getToken()
-
-        val request = Request.Builder()
-            .url(url)
-            .header("Authorization", "Bearer $token")
-            .build()
-        val response = http.newCall(request).execute()
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string() ?: ""
-            Log.e(TAG, "Spotify API error: HTTP ${response.code} for $url, body: ${errorBody.take(500)}")
-            if (response.code == 401) {
-                // Token expired — clear cached token
-                cachedOAuthToken = null
-                throw IOException("Spotify session expired. Please reconnect.")
-            }
-            // Show full error details for debugging
-            throw IOException("Spotify ${response.code}: ${errorBody.take(200)}")
-        }
-        return response.body?.string() ?: throw IOException("Empty API response")
-    }
 
     // ── URL Parsing ────────────────────────────────────────────────
 
@@ -227,23 +79,25 @@ object SpotifyClient {
         }
 
         Log.d(TAG, "Extracted ${spotifyId.type} ID: ${spotifyId.id}")
-
-        return when (spotifyId.type) {
-            SpotifyType.PLAYLIST -> getPlaylistTracks(spotifyId.id)
-            SpotifyType.ALBUM -> getAlbumTracks(spotifyId.id)
-        }
+        return fetchEmbedTracks(spotifyId.type, spotifyId.id)
     }
 
-    /**
-     * Fetch all tracks from a Spotify playlist using the embed page.
-     * This bypasses the official API (which returns 403 in Development Mode)
-     * by scraping the __NEXT_DATA__ JSON from the embed page.
-     */
-    fun getPlaylistTracks(playlistId: String): List<TrackCandidate> {
-        val tracks = mutableListOf<TrackCandidate>()
+    fun getPlaylistTracks(playlistId: String): List<TrackCandidate> =
+        fetchEmbedTracks(SpotifyType.PLAYLIST, playlistId)
 
-        val embedUrl = "https://open.spotify.com/embed/playlist/$playlistId"
-        Log.d(TAG, "Fetching playlist via embed: $embedUrl")
+    fun getAlbumTracks(albumId: String): List<TrackCandidate> =
+        fetchEmbedTracks(SpotifyType.ALBUM, albumId)
+
+    // ── Embed scraping ──────────────────────────────────────────────
+
+    /**
+     * Fetch every track of a playlist or album by scraping the __NEXT_DATA__
+     * JSON out of its embed page.
+     */
+    private fun fetchEmbedTracks(type: SpotifyType, id: String): List<TrackCandidate> {
+        val segment = if (type == SpotifyType.ALBUM) "album" else "playlist"
+        val embedUrl = "https://open.spotify.com/embed/$segment/$id"
+        Log.d(TAG, "Fetching $segment via embed: $embedUrl")
 
         val request = Request.Builder()
             .url(embedUrl)
@@ -261,20 +115,23 @@ object SpotifyClient {
         val regex = Regex("""<script id="__NEXT_DATA__"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
         val match = regex.find(html) ?: throw IOException("Could not find track data in embed page")
 
-        val root = com.google.gson.JsonParser.parseString(match.groupValues[1]).asJsonObject
+        val root = JsonParser.parseString(match.groupValues[1]).asJsonObject
         val entity = root
             .getAsJsonObject("props")
             ?.getAsJsonObject("pageProps")
             ?.getAsJsonObject("state")
             ?.getAsJsonObject("data")
             ?.getAsJsonObject("entity")
+            ?: throw IOException("Could not parse embed data structure")
 
-        if (entity == null) {
-            throw IOException("Could not parse embed data structure")
-        }
+        val trackList = entity.getAsJsonArray("trackList")
+            ?: throw IOException("No trackList in embed data")
 
-        val trackList = entity.getAsJsonArray("trackList") ?: throw IOException("No trackList in embed data")
+        // Playlists and albums both expose artwork here; the API path used to
+        // supply this for albums only.
+        val coverUrl = largestCoverUrl(entity)
 
+        val tracks = mutableListOf<TrackCandidate>()
         for (item in trackList) {
             val obj = item.asJsonObject
             val title = obj.get("title")?.asString ?: continue
@@ -286,129 +143,24 @@ object SpotifyClient {
                 title = title,
                 artist = artist,
                 durationSeconds = durationSec,
-                thumbnailUrl = null,
+                thumbnailUrl = coverUrl,
                 sourcePlatform = SourcePlatform.SPOTIFY
             ))
         }
 
-        Log.d(TAG, "Fetched ${tracks.size} tracks from playlist embed $playlistId")
+        Log.d(TAG, "Fetched ${tracks.size} tracks from $segment embed $id")
         return tracks
     }
 
-    /**
-     * Fetch all tracks from a Spotify album.
-     * Handles pagination automatically (up to 500 tracks).
-     */
-    fun getAlbumTracks(albumId: String): List<TrackCandidate> {
-        // First, get album metadata (for artwork)
-        val albumBody = apiGet("$API_BASE/albums/$albumId")
-        val album = gson.fromJson(albumBody, AlbumMetadata::class.java)
-        val albumThumb = album.images
-            ?.sortedByDescending { it.height ?: 0 }
-            ?.firstOrNull()?.url
-        val albumArtist = album.artists?.mapNotNull { it.name }?.joinToString(", ") ?: ""
-
-        Log.d(TAG, "Album: ${album.name}, artist: $albumArtist, thumb: $albumThumb")
-
-        val tracks = mutableListOf<TrackCandidate>()
-        var url: String? = "$API_BASE/albums/$albumId/tracks?limit=50"
-
-        while (url != null && tracks.size < 500) {
-            val body = apiGet(url)
-            Log.d(TAG, "Album tracks API response (first 300 chars): ${body.take(300)}")
-            val page = gson.fromJson(body, AlbumTracksPage::class.java)
-            Log.d(TAG, "Parsed album page: ${page.items?.size ?: 0} items, next=${page.next != null}")
-
-            page.items?.forEach { t ->
-                val name = t.name ?: return@forEach
-                val artist = t.artists?.mapNotNull { it.name }?.joinToString(", ") ?: albumArtist
-                val durationSec = t.durationMs?.let { it / 1000 }
-
-                tracks.add(TrackCandidate(
-                    title = name,
-                    artist = artist,
-                    durationSeconds = durationSec,
-                    thumbnailUrl = albumThumb,
-                    sourcePlatform = SourcePlatform.SPOTIFY
-                ))
-            }
-
-            url = page.next
-        }
-        Log.d(TAG, "Fetched ${tracks.size} tracks from album $albumId")
-        return tracks.take(500)
-    }
-
-    // ── User Playlists ──────────────────────────────────────────────
-
-    /**
-     * Fetch the current user's playlists.
-     * Requires user to be connected via SpotifyAuth.
-     */
-    data class PlaylistInfo(
-        val id: String?,
-        val name: String,
-        val trackCount: Int,
-        val thumbnail: String?,
-        val owner: String,
-        val url: String
-    )
-
-    fun getUserPlaylists(): List<PlaylistInfo> {
-        val playlists = mutableListOf<PlaylistInfo>()
-        var url: String? = "$API_BASE/me/playlists?limit=50"
-
-        while (url != null && playlists.size < 200) {
-            val body = apiGet(url)
-            Log.d(TAG, "Playlists response (first 500 chars): ${body.take(500)}")
-
-            // Parse manually to avoid Gson mapping issues with nested objects
-            val root = com.google.gson.JsonParser.parseString(body).asJsonObject
-            val items = root.getAsJsonArray("items") ?: continue
-
-            for (item in items) {
-                val obj = item.asJsonObject
-
-                val id = obj.get("id")?.asString
-                val name = obj.get("name")?.asString ?: "Untitled"
-
-                // tracks field — {"total": N}
-                val tracksEl = obj.get("tracks")
-                var trackCount = 0
-                if (tracksEl != null && tracksEl.isJsonObject) {
-                    trackCount = tracksEl.asJsonObject.get("total")?.asInt ?: 0
-                }
-                Log.d(TAG, "Playlist: $name, tracksEl=${tracksEl}, parsed=$trackCount")
-
-                // images is [{url, height, width}, ...]
-                val imagesArr = obj.getAsJsonArray("images")
-                val thumb = imagesArr?.firstOrNull()?.asJsonObject?.get("url")?.asString
-
-                // owner is {display_name: "..."}
-                val ownerObj = obj.getAsJsonObject("owner")
-                val ownerName = ownerObj?.get("display_name")?.asString ?: ""
-
-                // external_urls is {spotify: "..."}
-                val extUrls = obj.getAsJsonObject("external_urls")
-                val spotifyUrl = extUrls?.get("spotify")?.asString
-                    ?: "https://open.spotify.com/playlist/$id"
-
-                Log.d(TAG, "Playlist: $name, trackCount=$trackCount, owner=$ownerName")
-
-                playlists.add(PlaylistInfo(
-                    id = id,
-                    name = name,
-                    trackCount = trackCount,
-                    thumbnail = thumb,
-                    owner = ownerName,
-                    url = spotifyUrl
-                ))
-            }
-
-            url = root.get("next")?.let { if (it.isJsonNull) null else it.asString }
-        }
-
-        Log.d(TAG, "Fetched ${playlists.size} user playlists")
-        return playlists
+    /** Pick the highest-resolution artwork the embed page offers, if any. */
+    private fun largestCoverUrl(entity: JsonObject): String? = try {
+        entity.getAsJsonObject("visualIdentity")
+            ?.getAsJsonArray("image")
+            ?.map { it.asJsonObject }
+            ?.maxByOrNull { it.get("maxHeight")?.asInt ?: 0 }
+            ?.get("url")?.asString
+    } catch (e: Exception) {
+        Log.w(TAG, "Could not read cover art from embed data: ${e.message}")
+        null
     }
 }

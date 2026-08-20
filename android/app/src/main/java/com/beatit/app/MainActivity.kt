@@ -1,10 +1,8 @@
 package com.beatit.app
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.webkit.*
 import android.app.Activity
 
@@ -31,54 +29,6 @@ class MainActivity : Activity() {
         webView.postDelayed({
             webView.loadUrl("http://localhost:8080")
         }, 1200)
-
-        // Handle deep link if the app was launched by it
-        handleSpotifyCallback(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        intent?.let { handleSpotifyCallback(it) }
-    }
-
-    private fun handleSpotifyCallback(intent: Intent) {
-        val uri = intent.data ?: return
-        if (uri.scheme == "beatit" && uri.host == "callback") {
-            val code = uri.getQueryParameter("code")
-            val error = uri.getQueryParameter("error")
-
-            if (error != null) {
-                Log.e("MainActivity", "Spotify auth denied: $error")
-                webView.post {
-                    webView.loadUrl("http://localhost:8080")
-                    webView.postDelayed({
-                        webView.evaluateJavascript(
-                            "showToast && showToast('Spotify auth denied', 'error')", null
-                        )
-                    }, 2000)
-                }
-                return
-            }
-
-            if (code != null) {
-                Log.d("MainActivity", "Spotify auth code received, exchanging...")
-                Thread {
-                    SpotifyAuth.init(this)
-                    val success = SpotifyAuth.handleCallback(code)
-                    runOnUiThread {
-                        webView.loadUrl("http://localhost:8080")
-                        if (success) {
-                            webView.postDelayed({
-                                webView.evaluateJavascript(
-                                    "showToast && showToast('Connected to Spotify!', 'success')", null
-                                )
-                            }, 2000)
-                        }
-                    }
-                }.start()
-            }
-        }
     }
 
     private fun setupWebView() {
@@ -97,12 +47,11 @@ class MainActivity : Activity() {
                 view: WebView?, request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url ?: return false
-                val scheme = url.scheme ?: return false
 
                 // Let localhost requests load inside the WebView
                 if (url.host == "localhost" || url.host == "127.0.0.1") return false
 
-                // Handle custom scheme (beatit://callback) or external URLs via system
+                // Hand any external URL to the system browser
                 val intent = Intent(Intent.ACTION_VIEW, url)
                 startActivity(intent)
                 return true
