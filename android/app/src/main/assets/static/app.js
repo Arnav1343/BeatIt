@@ -25,10 +25,16 @@
     const audio = $('#audioPlayer');
 
     // ─── Media Session ────────────────────────────────────────────
-    // Without this, Chromium treats the WebView as a background tab with
-    // no active media and is free to suspend <audio> playback once the
-    // app is no longer in the foreground. Registering a session tells
-    // Android this is real media playback that should keep running.
+    // NOTE: Android WebView does not implement the Media Session API —
+    // navigator.mediaSession is undefined there (verified on WebView
+    // Chrome 150 / Android 16), so none of this runs inside the app. It is
+    // kept for the desktop Flask build, where the same UI runs in a real
+    // browser and this provides OS media keys and metadata.
+    //
+    // This does NOT keep background audio alive. Playback surviving
+    // minimise/screen-off is handled natively by BackgroundAudioWebView,
+    // which stops Chromium marking the document hidden and suspending
+    // <audio>. Do not "fix" background playback by editing this block.
     if ('mediaSession' in navigator) {
         navigator.mediaSession.setActionHandler('play', () => togglePlay());
         navigator.mediaSession.setActionHandler('pause', () => togglePlay());
