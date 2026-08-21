@@ -15,6 +15,14 @@
     <div class="device" id="device">
       <div class="screen" id="screen">
 
+        <!-- Drifting colour wash behind every view. Fed by --tint-a/b/c,
+             which applyArtTint() derives from the current cover art. -->
+        <div class="ambient" aria-hidden="true">
+          <span class="blob blob-a"></span>
+          <span class="blob blob-b"></span>
+          <span class="blob blob-c"></span>
+        </div>
+
         <!-- MENU VIEW -->
         <div class="view active" id="viewMenu">
           <div class="menu-list">
@@ -58,18 +66,6 @@
                 <polygon points="5,3 19,12 5,21" />
               </svg>
               <span>Now Playing</span><span class="menu-arrow">›</span>
-            </div>
-            <div class="menu-item" data-action="themes">
-              <svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
-                <line x1="12" y1="2" x2="12" y2="6" />
-                <line x1="12" y1="18" x2="12" y2="22" />
-                <line x1="2" y1="12" x2="6" y2="12" />
-                <line x1="18" y1="12" x2="22" y2="12" />
-              </svg>
-              <span>Themes</span><span class="menu-arrow">›</span>
             </div>
           </div>
         </div>

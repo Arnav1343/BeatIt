@@ -140,37 +140,6 @@
     let batchDetailPollInterval = null;
     let actionMenuIndex = 0;
 
-    // ─── Theme System ───────────────────────────────────────────────
-    const themes = [
-        { id: 'default', name: 'Pink / Black', dark: true },
-        { id: 'charcoal', name: 'Charcoal / Peach', dark: true },
-        { id: 'neon', name: 'Neon Green / Jet Black', dark: true },
-        { id: 'purple', name: 'Purple / Black', dark: true },
-        { id: 'deeppurple', name: 'Deep Purple / Rose Gold', dark: true },
-        { id: 'light', name: 'Light', dark: false },
-        { id: 'light-rose', name: 'Rose Light', dark: false },
-        { id: 'light-mint', name: 'Mint Light', dark: false },
-    ];
-    let currentThemeIndex = 0;
-    const savedTheme = localStorage.getItem('ipod-theme-id');
-    if (savedTheme) {
-        const idx = themes.findIndex(t => t.id === savedTheme);
-        if (idx >= 0) currentThemeIndex = idx;
-    }
-
-    function applyTheme() {
-        const t = themes[currentThemeIndex];
-        if (t.id === 'default') document.body.removeAttribute('data-theme');
-        else document.body.setAttribute('data-theme', t.id);
-        localStorage.setItem('ipod-theme-id', t.id);
-    }
-
-    function cycleTheme() {
-        currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-        applyTheme();
-        showToast(themes[currentThemeIndex].name);
-    }
-
     function showView(name, pushHistory = true) {
         if (pushHistory && currentView !== name) viewHistory.push(currentView);
         currentView = name;
@@ -252,7 +221,6 @@
         const items = $$('#viewMenu .menu-item');
         const a = items[menuIndex]?.dataset.action;
         if (!a) return;
-        if (a === 'themes') cycleTheme();
         else showView(a);
     }
 
@@ -999,7 +967,6 @@
             case 'Escape': case 'Backspace': if (document.activeElement !== searchInput) { e.preventDefault(); goBack(); } break;
             case ' ': if (document.activeElement !== searchInput) { e.preventDefault(); togglePlay(); } break;
             case 'Delete': if (currentView === 'library' && library[libraryIndex]) { e.preventDefault(); deleteSong(library[libraryIndex].filename); } break;
-            case 't': case 'T': if (document.activeElement !== searchInput) cycleTheme(); break;
         }
     });
 
@@ -1007,7 +974,6 @@
     function escH(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function esc(s) { return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
-    applyTheme();
     showView('menu', false);
     refreshLibrary();
 })();

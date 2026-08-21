@@ -79,274 +79,10 @@
   --tint-c: transparent;
 }
 
-/* Charcoal + Peach */
-[data-theme="charcoal"] {
-  --bg: #1F2937;
-  --device-bg: #253040;
-  --device-border: #374151;
-  --device-shadow: rgba(255, 167, 127, 0.15);
-  --screen-bg: #1F2937;
-  --screen-shadow: rgba(255, 167, 127, 0.1);
-  --header-color: #FFA77F;
-  --text-primary: #FFA77F;
-  --text-secondary: #e8956a;
-  --text-muted: #9a6f58;
-  --artwork-bg: #2d3a4a;
-  --icon-color: #FFA77F;
-  --transport-icon: #FFA77F;
-  --bar-bg: #2d3a4a;
-  --wheel-bg: radial-gradient(circle at center, #28333f 0%, #1d2733 100%);
-  --wheel-shadow-outer: rgba(255, 167, 127, 0.08);
-  --wheel-inner: rgba(255, 167, 127, 0.05);
-  --center-bg: radial-gradient(circle at 40% 35%, #2e3a48, #232f3c);
-  --center-shadow: rgba(0, 0, 0, 0.3);
-  --center-inner: rgba(255, 167, 127, 0.07);
-  --wheel-label-color: #FFA77F;
-  --divider: rgba(255, 167, 127, 0.1);
-  --input-bg: rgba(255, 167, 127, 0.07);
-  --input-border: rgba(255, 167, 127, 0.18);
-  --card-bg: rgba(255, 167, 127, 0.05);
-  --card-border: rgba(255, 167, 127, 0.1);
-  --badge-text: #1F2937;
-  --toggle-bg: rgba(255, 167, 127, 0.1);
-  --toggle-color: #FFA77F;
-  --accent: #FFA77F;
-  --accent-fill: linear-gradient(90deg, #FFA77F, #ffb896);
-  --success: #FFA77F;
-  --danger: #ff7f7f;
+/* Theme controls — hidden, theme cycling handled via menu */
+.theme-controls {
+  display: none
 }
-
-/* Neon Green + Jet Black */
-[data-theme="neon"] {
-  --bg: #0B0B0B;
-  --device-bg: #111111;
-  --device-border: #1a1a1a;
-  --device-shadow: rgba(0, 255, 136, 0.15);
-  --screen-bg: #0B0B0B;
-  --screen-shadow: rgba(0, 255, 136, 0.12);
-  --header-color: #00FF88;
-  --text-primary: #ffffff;
-  --text-secondary: #00FF88;
-  --text-muted: #00804a;
-  --artwork-bg: #0a1a10;
-  --icon-color: #00FF88;
-  --transport-icon: #00FF88;
-  --bar-bg: #0a1a10;
-  --wheel-bg: radial-gradient(circle at center, #0f1f15 0%, #090d0b 100%);
-  --wheel-shadow-outer: rgba(0, 255, 136, 0.08);
-  --wheel-inner: rgba(0, 255, 136, 0.04);
-  --center-bg: radial-gradient(circle at 40% 35%, #111e15, #0b1410);
-  --center-shadow: rgba(0, 0, 0, 0.5);
-  --center-inner: rgba(0, 255, 136, 0.06);
-  --wheel-label-color: #00FF88;
-  --divider: rgba(0, 255, 136, 0.1);
-  --input-bg: rgba(0, 255, 136, 0.06);
-  --input-border: rgba(0, 255, 136, 0.18);
-  --card-bg: rgba(0, 255, 136, 0.04);
-  --card-border: rgba(0, 255, 136, 0.1);
-  --badge-text: #000;
-  --toggle-bg: rgba(0, 255, 136, 0.08);
-  --toggle-color: #00FF88;
-  --accent: #00FF88;
-  --accent-fill: linear-gradient(90deg, #00FF88, #00cc6a);
-  --success: #00FF88;
-  --danger: #ff4466;
-}
-
-/* Purple + Black */
-[data-theme="purple"] {
-  --bg: #040405;
-  --device-bg: #0a0810;
-  --device-border: #1a1520;
-  --device-shadow: rgba(92, 44, 244, 0.25);
-  --screen-bg: #040405;
-  --screen-shadow: rgba(92, 44, 244, 0.15);
-  --header-color: #5C2CF4;
-  --text-primary: #ffffff;
-  --text-secondary: #5C2CF4;
-  --text-muted: #3a1a80;
-  --artwork-bg: #0d0820;
-  --icon-color: #5C2CF4;
-  --transport-icon: #5C2CF4;
-  --bar-bg: #0d0820;
-  --wheel-bg: radial-gradient(circle at center, #120e1e 0%, #08060e 100%);
-  --wheel-shadow-outer: rgba(92, 44, 244, 0.1);
-  --wheel-inner: rgba(92, 44, 244, 0.05);
-  --center-bg: radial-gradient(circle at 40% 35%, #140f24, #0c091a);
-  --center-shadow: rgba(0, 0, 0, 0.5);
-  --center-inner: rgba(92, 44, 244, 0.07);
-  --wheel-label-color: #5C2CF4;
-  --divider: rgba(92, 44, 244, 0.12);
-  --input-bg: rgba(92, 44, 244, 0.08);
-  --input-border: rgba(92, 44, 244, 0.2);
-  --card-bg: rgba(92, 44, 244, 0.05);
-  --card-border: rgba(92, 44, 244, 0.12);
-  --badge-text: #fff;
-  --toggle-bg: rgba(92, 44, 244, 0.1);
-  --toggle-color: #5C2CF4;
-  --accent: #5C2CF4;
-  --accent-fill: linear-gradient(90deg, #5C2CF4, #7c55f6);
-  --success: #5C2CF4;
-  --danger: #f44;
-}
-
-/* Deep Purple + Rose Gold */
-[data-theme="deeppurple"] {
-  --bg: #2D0A3A;
-  --device-bg: #360c46;
-  --device-border: #4a1560;
-  --device-shadow: rgba(230, 164, 180, 0.2);
-  --screen-bg: #2D0A3A;
-  --screen-shadow: rgba(230, 164, 180, 0.12);
-  --header-color: #E6A4B4;
-  --text-primary: #E6A4B4;
-  --text-secondary: #d88fa0;
-  --text-muted: #9a6070;
-  --artwork-bg: #3d1050;
-  --icon-color: #E6A4B4;
-  --transport-icon: #E6A4B4;
-  --bar-bg: #3d1050;
-  --wheel-bg: radial-gradient(circle at center, #380c48 0%, #2a0838 100%);
-  --wheel-shadow-outer: rgba(230, 164, 180, 0.08);
-  --wheel-inner: rgba(230, 164, 180, 0.05);
-  --center-bg: radial-gradient(circle at 40% 35%, #3e0f50, #32093f);
-  --center-shadow: rgba(0, 0, 0, 0.4);
-  --center-inner: rgba(230, 164, 180, 0.07);
-  --wheel-label-color: #E6A4B4;
-  --divider: rgba(230, 164, 180, 0.12);
-  --input-bg: rgba(230, 164, 180, 0.08);
-  --input-border: rgba(230, 164, 180, 0.2);
-  --card-bg: rgba(230, 164, 180, 0.05);
-  --card-border: rgba(230, 164, 180, 0.12);
-  --badge-text: #2D0A3A;
-  --toggle-bg: rgba(230, 164, 180, 0.1);
-  --toggle-color: #E6A4B4;
-  --accent: #E6A4B4;
-  --accent-fill: linear-gradient(90deg, #E6A4B4, #f0b8c8);
-  --success: #E6A4B4;
-  --danger: #ff6b6b;
-}
-
-/* ═══ LIGHT THEMES ═══ */
-
-/* Light — Clean White + Blue */
-[data-theme="light"] {
-  --bg: #F5F5F7;
-  --device-bg: #FFFFFF;
-  --device-border: #D2D2D7;
-  --device-shadow: rgba(0, 122, 255, 0.08);
-  --screen-bg: #FAFAFA;
-  --screen-shadow: rgba(0, 0, 0, 0.05);
-  --header-color: #007AFF;
-  --text-primary: #1D1D1F;
-  --text-secondary: #007AFF;
-  --text-muted: #86868B;
-  --artwork-bg: #E8E8ED;
-  --icon-color: #007AFF;
-  --transport-icon: #007AFF;
-  --bar-bg: #E5E5EA;
-  --wheel-bg: radial-gradient(circle at center, #E8E8ED 0%, #D2D2D7 100%);
-  --wheel-shadow-outer: rgba(0, 0, 0, 0.06);
-  --wheel-inner: rgba(0, 122, 255, 0.06);
-  --center-bg: radial-gradient(circle at 40% 35%, #F0F0F5, #E0E0E5);
-  --center-shadow: rgba(0, 0, 0, 0.08);
-  --center-inner: rgba(0, 122, 255, 0.08);
-  --wheel-label-color: #555;
-  --divider: rgba(0, 0, 0, 0.08);
-  --input-bg: #FFFFFF;
-  --input-border: #D2D2D7;
-  --card-bg: rgba(0, 122, 255, 0.04);
-  --card-border: rgba(0, 0, 0, 0.06);
-  --badge-text: #fff;
-  --toggle-bg: rgba(0, 122, 255, 0.08);
-  --toggle-color: #007AFF;
-  --accent: #007AFF;
-  --accent-fill: linear-gradient(90deg, #007AFF, #5AC8FA);
-  --success: #34C759;
-  --danger: #FF3B30;
-  --glass-ink: #000000;
-  --glass-alpha: 12%;
-}
-
-/* Light Rose — Warm Cream + Rose */
-[data-theme="light-rose"] {
-  --bg: #FFF5F5;
-  --device-bg: #FFFFFF;
-  --device-border: #F0D4D4;
-  --device-shadow: rgba(220, 80, 100, 0.08);
-  --screen-bg: #FFFAFA;
-  --screen-shadow: rgba(0, 0, 0, 0.04);
-  --header-color: #DC5064;
-  --text-primary: #2D1A1A;
-  --text-secondary: #DC5064;
-  --text-muted: #B08888;
-  --artwork-bg: #FFE8E8;
-  --icon-color: #DC5064;
-  --transport-icon: #DC5064;
-  --bar-bg: #FFE0E0;
-  --wheel-bg: radial-gradient(circle at center, #FFE8E8 0%, #F0D4D4 100%);
-  --wheel-shadow-outer: rgba(0, 0, 0, 0.05);
-  --wheel-inner: rgba(220, 80, 100, 0.06);
-  --center-bg: radial-gradient(circle at 40% 35%, #FFF0F0, #FFE0E0);
-  --center-shadow: rgba(0, 0, 0, 0.06);
-  --center-inner: rgba(220, 80, 100, 0.08);
-  --wheel-label-color: #885555;
-  --divider: rgba(220, 80, 100, 0.12);
-  --input-bg: #FFFFFF;
-  --input-border: #F0D4D4;
-  --card-bg: rgba(220, 80, 100, 0.04);
-  --card-border: rgba(220, 80, 100, 0.08);
-  --badge-text: #fff;
-  --toggle-bg: rgba(220, 80, 100, 0.08);
-  --toggle-color: #DC5064;
-  --accent: #DC5064;
-  --accent-fill: linear-gradient(90deg, #DC5064, #F0889A);
-  --success: #34C759;
-  --danger: #FF3B30;
-  --glass-ink: #000000;
-  --glass-alpha: 12%;
-}
-
-/* Light Mint — Soft Mint + Teal */
-[data-theme="light-mint"] {
-  --bg: #F0FAF6;
-  --device-bg: #FFFFFF;
-  --device-border: #C8E6DC;
-  --device-shadow: rgba(0, 168, 120, 0.08);
-  --screen-bg: #F5FDF9;
-  --screen-shadow: rgba(0, 0, 0, 0.04);
-  --header-color: #00A878;
-  --text-primary: #1A2D26;
-  --text-secondary: #00A878;
-  --text-muted: #7AAA96;
-  --artwork-bg: #E0F5EC;
-  --icon-color: #00A878;
-  --transport-icon: #00A878;
-  --bar-bg: #D8F0E4;
-  --wheel-bg: radial-gradient(circle at center, #E0F5EC 0%, #C8E6DC 100%);
-  --wheel-shadow-outer: rgba(0, 0, 0, 0.05);
-  --wheel-inner: rgba(0, 168, 120, 0.06);
-  --center-bg: radial-gradient(circle at 40% 35%, #EAF8F0, #D8F0E4);
-  --center-shadow: rgba(0, 0, 0, 0.06);
-  --center-inner: rgba(0, 168, 120, 0.08);
-  --wheel-label-color: #557766;
-  --divider: rgba(0, 168, 120, 0.1);
-  --input-bg: #FFFFFF;
-  --input-border: #C8E6DC;
-  --card-bg: rgba(0, 168, 120, 0.04);
-  --card-border: rgba(0, 168, 120, 0.08);
-  --badge-text: #fff;
-  --toggle-bg: rgba(0, 168, 120, 0.08);
-  --toggle-color: #00A878;
-  --accent: #00A878;
-  --accent-fill: linear-gradient(90deg, #00A878, #4DD9A8);
-  --success: #00A878;
-  --danger: #FF3B30;
-  --glass-ink: #000000;
-  --glass-alpha: 12%;
-}
-
-
 
 body {
   height: var(--app-height, 100vh);
@@ -372,11 +108,6 @@ body {
   padding: 0;
   position: relative;
   overflow: hidden
-}
-
-/* Theme controls — hidden, theme cycling handled via menu */
-.theme-controls {
-  display: none
 }
 
 /* Device — integrated physical shell */
@@ -453,6 +184,79 @@ body {
   z-index: 5;
 }
 
+/* ─── Ambient background ────────────────────────────────────────
+   Three soft colour blobs drifting behind every view, tinted from the
+   current cover art. Only transform is animated — it composites on the
+   GPU, so this stays cheap next to the blurred glass panels. Animating
+   the gradients themselves would repaint every frame. */
+
+.ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  border-radius: 50%;
+  filter: blur(0.5px);
+  will-change: transform;
+  transition: background 0.8s ease;
+}
+
+.blob-a {
+  background: radial-gradient(circle, var(--tint-a) 0%, transparent 62%);
+  top: -45%;
+  left: -30%;
+  animation: driftA 34s ease-in-out infinite;
+}
+
+.blob-b {
+  background: radial-gradient(circle, var(--tint-b) 0%, transparent 60%);
+  bottom: -50%;
+  right: -35%;
+  animation: driftB 43s ease-in-out infinite;
+}
+
+.blob-c {
+  background: radial-gradient(circle, var(--tint-c) 0%, transparent 58%);
+  top: 20%;
+  right: -40%;
+  animation: driftC 52s ease-in-out infinite;
+}
+
+/* Deliberately different periods so the three never resync into a
+   visible pulse. */
+@keyframes driftA {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(18%, 12%, 0) scale(1.15); }
+  66%      { transform: translate3d(6%, 22%, 0) scale(0.92); }
+}
+
+@keyframes driftB {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  40%      { transform: translate3d(-20%, -14%, 0) scale(0.9); }
+  75%      { transform: translate3d(-8%, -26%, 0) scale(1.18); }
+}
+
+@keyframes driftC {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50%      { transform: translate3d(-26%, 16%, 0) scale(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none; }
+}
+
+/* Views sit above the wash. */
+.view {
+  z-index: 1;
+}
+
 /* Views */
 .view {
   position: absolute;
@@ -500,24 +304,7 @@ body {
    far more expensive to composite, and .screen already clips its
    children and overlays a glare pseudo-element. */
 
-/* No position override here: .view is already absolute, which is the
-   containing block ::before needs. Making it relative instead collapses
-   the view to its content height, so the tint stops filling the screen. */
-
-#viewNowPlaying::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 80% at 50% 0%, var(--tint-a), transparent 70%),
-    radial-gradient(100% 70% at 12% 100%, var(--tint-b), transparent 70%),
-    radial-gradient(90% 60% at 88% 82%, var(--tint-c), transparent 70%);
-  transition: background 0.6s ease;
-}
-
-/* Content sits above the tint layer. */
+/* Content sits above the ambient wash. */
 .np-content,
 .np-transport {
   position: relative;
@@ -847,34 +634,35 @@ body {
   flex-direction: column
 }
 
+/* Rows are separated by spacing, not hairlines. The old
+   border-bottom-per-row is most of what made the UI feel boxy. */
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 0;
+  gap: 11px;
+  padding: 11px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--glass-radius-sm);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.05s, color 0.05s;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  border-bottom: 1px solid var(--divider);
   color: var(--text-primary)
 }
 
-.menu-item:last-child {
-  border-bottom: none
-}
-
 .menu-item:active {
-  opacity: 0.8
+  transform: scale(0.985)
 }
 
-/* Full-width solid highlight, white text — classic iPod */
+/* A rounded glass pill instead of a full-bleed square block of accent. */
 .menu-item.selected {
-  background: var(--accent);
-  color: #fff;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--glass-hairline)
 }
 
 .menu-icon {
@@ -890,7 +678,7 @@ body {
 
 .menu-item.selected .menu-icon {
   opacity: 1;
-  color: #fff
+  color: var(--accent)
 }
 
 .menu-item .menu-arrow {
@@ -901,7 +689,7 @@ body {
 
 .menu-item.selected .menu-arrow {
   opacity: 0.8;
-  color: #fff
+  color: var(--accent)
 }
 
 .menu-badge {
@@ -978,7 +766,7 @@ body {
   gap: 8px;
   padding: 7px 10px;
   cursor: pointer;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   transition: background 0.15s;
 }
 
@@ -1241,7 +1029,7 @@ body {
   color: var(--text-primary);
   position: relative;
   -webkit-tap-highlight-color: transparent;
-  border-bottom: 1px solid var(--divider)
+  border-bottom: none
 }
 
 .library-item:last-child {
@@ -1584,7 +1372,7 @@ body {
 
 .batch-item {
   padding: 10px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -1624,7 +1412,7 @@ body {
 .batch-detail-header {
   padding: 10px 12px;
   background: var(--card-bg);
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   flex-shrink: 0;
 }
 
@@ -1650,7 +1438,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
 }
 
 .track-item.selected {
@@ -1785,7 +1573,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 10px 4px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   cursor: pointer;
 }
 
@@ -1841,7 +1629,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 6px 0 10px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   margin-bottom: 6px;
 }
 
@@ -1867,7 +1655,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   padding: 8px 4px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: none;
   margin-bottom: 4px;
 }
 
@@ -2118,4 +1906,165 @@ body {
 
 .track-item.selected .track-title {
   color: var(--accent);
+}
+
+/* ═══ GLASS ROLLOUT ═════════════════════════════════════════════
+   Final layer: brings the remaining screens in line with Now Playing.
+
+   Appended rather than merged into the rules above because several of
+   these components (.batch-item, .batch-detail-header, .track-item,
+   .quality-opt) are already defined two or three times earlier in this
+   file with conflicting values, and last-definition-wins is the
+   existing convention here. Collapsing those duplicates is worth doing,
+   but it is a refactor of its own and not something to bundle with a
+   visual change.
+
+   The shared idea: rows are separated by spacing and a soft pill, not
+   by hairlines and square accent blocks. */
+
+/* ── Rows: library, suggestions, batches, tracks ───────────────── */
+.library-item,
+.suggestion-item,
+.batch-item,
+.track-item {
+  border-radius: var(--glass-radius-sm);
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  border-left: none;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+
+.library-item:active,
+.suggestion-item:active,
+.batch-item:active,
+.track-item:active {
+  transform: scale(0.985);
+}
+
+.library-item.selected,
+.suggestion-item.selected,
+.batch-item.selected,
+.track-item.selected {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: inset 0 0 0 1px var(--glass-hairline);
+  border-left: none;
+}
+
+/* The old left-edge marker bars and the hardcoded pink glow behind the
+   selected track (wrong in every theme but the default, and there are no
+   themes now) are replaced by the pill above. */
+.track-item.selected::before,
+.batch-item.selected::before,
+.library-item.playing::before {
+  display: none;
+}
+
+.library-item.playing {
+  background: var(--glass-bg);
+  border-radius: var(--glass-radius-sm);
+}
+
+/* ── Inputs ────────────────────────────────────────────────────── */
+#searchInput,
+#importInput {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-hairline);
+  border-radius: var(--glass-radius-sm);
+  padding: 11px 14px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+#searchInput:focus,
+#importInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  /* The old focus ring was a hardcoded blue that matched nothing. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.suggestions-dropdown {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-hairline);
+  border-radius: var(--glass-radius);
+  overflow: hidden;
+  padding: 4px;
+}
+
+/* ── Cards and panels ──────────────────────────────────────────── */
+.search-result,
+.import-instructions,
+.batch-detail-header,
+.menu-header {
+  background: var(--glass-bg);
+  border: none;
+  border-radius: var(--glass-radius);
+  padding: 12px 14px;
+}
+
+.quality-selector,
+.quality-opt,
+.fmt-btn {
+  border-radius: var(--glass-radius-sm);
+  border: 1px solid var(--glass-hairline);
+  background: var(--glass-bg);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.quality-opt.selected,
+.fmt-btn.active {
+  background: var(--glass-bg-strong);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.download-btn {
+  border-radius: var(--glass-radius);
+  border: none;
+  background: var(--accent);
+  color: var(--badge-text);
+  padding: 12px 16px;
+  font-weight: 700;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+
+.download-btn:active {
+  transform: scale(0.98);
+  filter: brightness(1.1);
+}
+
+.download-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ── Progress + status ─────────────────────────────────────────── */
+.download-progress-bar,
+.batch-item-progress {
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--glass-bg-strong);
+}
+
+.download-progress-fill,
+.batch-item-fill {
+  border-radius: 999px;
+}
+
+.track-status-pill {
+  border-radius: 999px;
+  border: none;
+  background: var(--glass-bg-strong);
+}
+
+.menu-badge {
+  border-radius: 999px;
+}
+
+/* Themed to the accent instead of the stale hardcoded blue. */
+.view::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
