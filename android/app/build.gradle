@@ -12,8 +12,8 @@ android {
         applicationId "com.beatit.app"
         minSdk 26
         targetSdk 34
-        versionCode 18
-        versionName "1.17-artwheel"
+        versionCode 19
+        versionName "1.18-fixes"
     }
 
     buildTypes {

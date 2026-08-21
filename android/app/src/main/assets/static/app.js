@@ -596,28 +596,46 @@
         }
     }
 
+    /**
+     * Artwork can be almost black or almost grey, which used to drain the
+     * wheel, the progress bar and the menu of colour entirely. Keep the hue
+     * the art gave us, but hold lightness and saturation inside a band that
+     * stays legible on a dark background.
+     */
+    function vivid(r, g, b, minL = 46, maxL = 66, minS = 38) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h = 0, sPct, l = (max + min) / 2;
+        const d = max - min;
+        if (d !== 0) {
+            if (max === r) h = ((g - b) / d) % 6;
+            else if (max === g) h = (b - r) / d + 2;
+            else h = (r - g) / d + 4;
+            h *= 60; if (h < 0) h += 360;
+        }
+        sPct = d === 0 ? 0 : (d / (1 - Math.abs(2 * l - 1))) * 100;
+        l *= 100;
+        l = Math.min(maxL, Math.max(minL, l));
+        sPct = Math.min(85, Math.max(minS, sPct));
+        return hslToRgb(h, sPct, l);
+    }
+
+    function hslToRgb(h, s, l) {
+        s /= 100; l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+        const m = l - c / 2;
+        let rgb;
+        if (h < 60) rgb = [c, x, 0]; else if (h < 120) rgb = [x, c, 0];
+        else if (h < 180) rgb = [0, c, x]; else if (h < 240) rgb = [0, x, c];
+        else if (h < 300) rgb = [x, 0, c]; else rgb = [c, 0, x];
+        return rgb.map(v => Math.round((v + m) * 255));
+    }
+
     /** Relative luminance, for the contrast guard below. */
     function luminance(r, g, b) {
         const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
         return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-    }
-
-    function parseRgb(css) {
-        const m = css.match(/(\d+),\s*(\d+),\s*(\d+)/);
-        return m ? [+m[1], +m[2], +m[3]] : [240, 240, 240];
-    }
-
-    /**
-     * Art can be any colour, including one that vanishes against the
-     * current theme's text. Fall back to the theme accent rather than
-     * shipping unreadable text.
-     */
-    function accentIsLegible(r, g, b) {
-        const textRgb = parseRgb(getComputedStyle(document.documentElement).getPropertyValue('color') ||
-            getComputedStyle(document.body).color);
-        const l1 = luminance(r, g, b), l2 = luminance(textRgb[0], textRgb[1], textRgb[2]);
-        const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-        return ratio >= 1.6;
     }
 
     /** Stable pseudo-colour for tracks with no art, so each still feels distinct. */
@@ -629,7 +647,7 @@
             `hsla(${hue},70%,45%,0.38)`,
             `hsla(${(hue + 40) % 360},65%,40%,0.30)`,
             `hsla(${(hue + 310) % 360},60%,35%,0.24)`,
-            `hsl(${hue},55%,32%)`
+            `hsl(${hue},55%,50%)`
         ];
     }
 
@@ -664,12 +682,13 @@
             const p0 = pick(0), p1 = pick(Math.floor(buckets.length / 3)), p2 = pick(Math.floor(buckets.length / 2));
             const rgba = (p, a) => `rgba(${p.r},${p.g},${p.b},${a})`;
 
-            const accent = accentIsLegible(p0.r, p0.g, p0.b)
-                ? `rgb(${p0.r},${p0.g},${p0.b})`
-                : themeAccent;
+            const [vr, vg, vb] = vivid(p0.r, p0.g, p0.b);
+            const accent = `rgb(${vr},${vg},${vb})`;
+            // The wheel mixes against this, so it needs the same floor —
+            // otherwise near-black art leaves the wheel invisible.
+            const solid = `rgb(${vr},${vg},${vb})`;
 
-            setTint(rgba(p0, 0.42), rgba(p1, 0.32), rgba(p2, 0.26), accent,
-                    `rgb(${p0.r},${p0.g},${p0.b})`);
+            setTint(rgba(p0, 0.42), rgba(p1, 0.32), rgba(p2, 0.26), accent, solid);
         } catch (e) {
             // Tainted canvas or decode failure — degrade, never break playback.
             applyHashFallback(title);
@@ -718,13 +737,18 @@
         incoming.src = url;
     }
 
-    function playSong(fn, title) {
+    /**
+     * `navigate` is false for next/prev: skipping a track from the Library or
+     * the wheel should change what is playing, not drag you to Now Playing.
+     * Only an explicit pick does that.
+     */
+    function playSong(fn, title, navigate = true) {
         currentSong = { filename: fn, title };
         currentSongIndex = library.findIndex(s => s.filename === fn);
         audio.src = '/api/music/' + encodeURIComponent(fn);
         audio.play().catch(() => { });
         isPlaying = true;
-        showView('nowplaying');
+        if (navigate) showView('nowplaying');
         updateNowPlaying();
         refreshLibrary();
     }
@@ -746,7 +770,7 @@
     }
 
     function togglePlay() {
-        if (!currentSong) { if (library.length) playSong(library[0].filename, library[0].title); return; }
+        if (!currentSong) { if (library.length) playSong(library[0].filename, library[0].title, false); return; }
         if (isPlaying) { audio.pause(); isPlaying = false; } else { audio.play().catch(() => { }); isPlaying = true; }
         updateNowPlaying(); refreshLibrary();
     }
@@ -755,7 +779,7 @@
         if (!library.length) return;
         if (isShuffle) currentSongIndex = Math.floor(Math.random() * library.length);
         else currentSongIndex = (currentSongIndex + 1) % library.length;
-        playSong(library[currentSongIndex].filename, library[currentSongIndex].title);
+        playSong(library[currentSongIndex].filename, library[currentSongIndex].title, false);
     }
 
     async function submitImport() {
@@ -882,7 +906,7 @@
         if (audio.currentTime > 3) { audio.currentTime = 0; return; }
         if (!library.length) return;
         currentSongIndex = (currentSongIndex - 1 + library.length) % library.length;
-        playSong(library[currentSongIndex].filename, library[currentSongIndex].title);
+        playSong(library[currentSongIndex].filename, library[currentSongIndex].title, false);
     }
 
     audio.addEventListener('timeupdate', () => {

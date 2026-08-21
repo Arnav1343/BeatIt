@@ -294,14 +294,14 @@ body {
 }
 
 .np-artwork {
-  /* Roughly 62% of the screen width — large enough to be the subject of
-     the view, with the panels below still reading as a group. */
-  width: min(62%, 208px);
+  /* The dominant element on the view. Capped below 100% so it always
+     keeps air on both sides rather than butting into the edges. */
+  width: min(82%, 268px);
   aspect-ratio: 1;
   height: auto;
   position: relative;
-  border-radius: var(--glass-radius);
-  background: var(--glass-bg);
+  border-radius: 22px;
+  background: var(--artwork-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -389,15 +389,14 @@ body {
   transition: color 0.3s
 }
 
-/* Glass panel 2 of 2. */
+/* No panel here — a frame around the transport read as a stray box and
+   muted the controls inside it. They sit directly on the wash instead,
+   with enough weight to stay legible against a dark cover. */
 .np-transport {
-  padding: 10px 14px 12px;
-  margin: 10px 0 4px;
+  padding: 0 6px 4px;
+  margin: 14px 0 4px;
   flex-shrink: 0;
-  border-radius: var(--glass-radius);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur))
+  background: none
 }
 
 .np-transport-icons {
@@ -416,7 +415,8 @@ body {
   border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
   color: var(--transport-icon);
-  opacity: 0.55;
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
   transition: opacity 0.15s ease, background 0.15s ease, color 0.9s ease
 }
 
@@ -443,7 +443,10 @@ body {
   position: relative;
   overflow: visible;
   cursor: pointer;
-  background: var(--glass-bg-strong);
+  /* A fixed light trough rather than a tinted one: mixed against a dark
+     cover the tinted version disappeared into the background. */
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   transition: background 0.3s
 }
 
@@ -461,9 +464,9 @@ body {
   transform: translate(-50%, -50%);
   width: 10px;
   height: 10px;
-  background: var(--accent);
+  background: #fff;
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   z-index: 2;
   transition: left 0.3s linear, width 0.15s ease, height 0.15s ease
@@ -485,7 +488,8 @@ body {
   font-size: 10px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   transition: color 0.3s
 }
 
@@ -498,7 +502,7 @@ body {
   /* Pushed to the bottom of the device column rather than floating just
      under the screen, which left an awkward gap beneath it. */
   margin-top: auto;
-  margin-bottom: 22px;
+  margin-bottom: 46px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -509,7 +513,8 @@ body {
     inset 2px 2px 6px rgba(255, 255, 255, 0.03),
     inset -2px -2px 6px rgba(0, 0, 0, 0.3),
     0 1px 0 rgba(255, 255, 255, 0.02),
-    0 2px 8px var(--wheel-shadow-outer);
+    0 2px 8px var(--wheel-shadow-outer),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
   transition: background 0.9s ease, box-shadow 0.9s ease;
   z-index: 1;
 }
@@ -523,7 +528,7 @@ body {
   right: -2px;
   bottom: -2px;
   border-radius: 50%;
-  border: 1px solid var(--wheel-separator, rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.10);
   pointer-events: none;
 }
 
@@ -577,8 +582,9 @@ body {
   font-size: 9px;
   letter-spacing: 2.5px;
   font-family: inherit;
-  opacity: 0.75;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3)
+  opacity: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6)
 }
 
 .wheel-label-top {
@@ -651,7 +657,7 @@ body {
 
 /* A rounded glass pill instead of a full-bleed square block of accent. */
 .menu-item.selected {
-  background: var(--glass-bg-strong);
+  background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   color: var(--text-primary);
@@ -1938,7 +1944,7 @@ body {
 .suggestion-item.selected,
 .batch-item.selected,
 .track-item.selected {
-  background: var(--glass-bg-strong);
+  background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: inset 0 0 0 1px var(--glass-hairline);

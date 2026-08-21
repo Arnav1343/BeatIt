@@ -32,7 +32,7 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 uri.startsWith("/api/import/status/") -> handleImportStatus(uri)
                 method == Method.POST && uri == "/api/import/action" -> handleImportAction(session)
                 uri == "/api/library" -> handleLibrary()
-                uri.startsWith("/api/music/") -> handleMusic(uri)
+                uri.startsWith("/api/music/") -> handleMusic(uri, session)
                 uri.startsWith("/api/art/") -> handleArt(uri)
                 method == Method.POST && uri == "/api/delete" -> handleDelete(session)
                 else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
@@ -142,12 +142,81 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
 
     // ── API: Stream music ───────────────────────────────────────────
 
-    private fun handleMusic(uri: String): Response {
+    /**
+     * Streams audio with byte-range support.
+     *
+     * This used to be a chunked response, which carries no Content-Length and
+     * no Accept-Ranges. Seeking then had nothing to seek within: setting
+     * currentTime made the browser re-request the file, get the whole thing
+     * from byte 0 again, and restart the track. Range support is what makes
+     * the progress bar work.
+     */
+    private fun handleMusic(uri: String, session: IHTTPSession): Response {
         val filename = java.net.URLDecoder.decode(uri.removePrefix("/api/music/"), "UTF-8")
+            .replace("..", "")
         val file = File(musicDir, filename)
         if (!file.exists()) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
-        val mime = if (filename.endsWith(".mp3")) "audio/mpeg" else "audio/ogg"
-        return newChunkedResponse(Response.Status.OK, mime, FileInputStream(file))
+
+        val mime = sniffAudioMime(file, filename)
+        val length = file.length()
+        val range = session.headers["range"] ?: session.headers["Range"]
+
+        if (range == null || !range.startsWith("bytes=")) {
+            val res = newFixedLengthResponse(Response.Status.OK, mime, FileInputStream(file), length)
+            res.addHeader("Accept-Ranges", "bytes")
+            return res
+        }
+
+        // "bytes=start-[end]"
+        val spec = range.removePrefix("bytes=").split("-")
+        val start = spec.getOrNull(0)?.toLongOrNull() ?: 0L
+        val end = spec.getOrNull(1)?.takeIf { it.isNotBlank() }?.toLongOrNull() ?: (length - 1)
+
+        if (start >= length) {
+            val res = newFixedLengthResponse(
+                Response.Status.RANGE_NOT_SATISFIABLE, MIME_PLAINTEXT, ""
+            )
+            res.addHeader("Content-Range", "bytes */$length")
+            return res
+        }
+
+        val safeEnd = minOf(end, length - 1)
+        val count = safeEnd - start + 1
+        val stream = FileInputStream(file).apply { skip(start) }
+
+        val res = newFixedLengthResponse(Response.Status.PARTIAL_CONTENT, mime, stream, count)
+        res.addHeader("Accept-Ranges", "bytes")
+        res.addHeader("Content-Range", "bytes $start-$safeEnd/$length")
+        return res
+    }
+
+    /**
+     * The file extension lies: both download paths save YouTube's raw stream
+     * without transcoding, so a ".mp3" is usually a WebM container. Serving
+     * the wrong mime makes the browser's demuxer work harder than it should
+     * and can break seeking, so sniff the magic bytes instead.
+     */
+    private fun sniffAudioMime(file: File, filename: String): String {
+        val head = ByteArray(4)
+        try {
+            FileInputStream(file).use { if (it.read(head) < 4) return "audio/mpeg" }
+        } catch (e: Exception) {
+            return "audio/mpeg"
+        }
+        return when {
+            // EBML header — Matroska / WebM
+            head[0] == 0x1A.toByte() && head[1] == 0x45.toByte() &&
+                head[2] == 0xDF.toByte() && head[3] == 0xA3.toByte() -> "audio/webm"
+            // "OggS"
+            head[0] == 'O'.code.toByte() && head[1] == 'g'.code.toByte() &&
+                head[2] == 'g'.code.toByte() && head[3] == 'S'.code.toByte() -> "audio/ogg"
+            // "ftyp" at offset 4 would be m4a, but ID3 / frame sync is mp3
+            head[0] == 'I'.code.toByte() && head[1] == 'D'.code.toByte() &&
+                head[2] == '3'.code.toByte() -> "audio/mpeg"
+            head[0] == 0xFF.toByte() && (head[1].toInt() and 0xE0) == 0xE0 -> "audio/mpeg"
+            filename.endsWith(".mp3") -> "audio/mpeg"
+            else -> "audio/ogg"
+        }
     }
 
     // ── API: Artwork ────────────────────────────────────────────────
