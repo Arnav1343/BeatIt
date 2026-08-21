@@ -500,9 +500,9 @@ body {
    far more expensive to composite, and .screen already clips its
    children and overlays a glare pseudo-element. */
 
-#viewNowPlaying {
-  position: relative;
-}
+/* No position override here: .view is already absolute, which is the
+   containing block ::before needs. Making it relative instead collapses
+   the view to its content height, so the tint stops filling the screen. */
 
 #viewNowPlaying::before {
   content: '';
@@ -1727,7 +1727,11 @@ body {
 }
 
 /* ─── Import View ────────────────────────────────────────────── */
-#viewImport {
+/* Scoped to .active deliberately. A bare `#viewImport { display: flex }`
+   outranks `.view { display: none }` on specificity, so the view stays
+   painted while another one is showing. The old duplicate `.view` rule
+   used !important, which hid this. */
+#viewImport.active {
   display: flex;
   flex-direction: column;
   gap: 12px;

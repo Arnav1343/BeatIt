@@ -63,6 +63,7 @@ object PlaybackSession {
     private val artExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var artBitmap: android.graphics.Bitmap? = null
     private var artBitmapKey: String? = null
+    private var artDecodePending: String? = null
     private var musicDir: File? = null
 
     fun init(context: Context, musicDirectory: File? = null) {
@@ -155,12 +156,19 @@ object PlaybackSession {
      */
     private fun artworkFor(name: String): android.graphics.Bitmap? {
         if (name.isEmpty()) return null
-        if (artBitmapKey == name) return artBitmap
+        if (artBitmapKey == name && artBitmap != null) return artBitmap
 
         val dir = musicDir ?: return null
+        val file = ArtworkStore.artFile(dir, name)
+        // Not fetched yet. Return without caching the miss: the lazy lookup
+        // often lands a second or two after playback starts, and a cached
+        // negative would mean this track never showed art at all.
+        if (!file.exists()) return null
+        if (artDecodePending == name) return null
+
+        artDecodePending = name
         artExecutor.submit {
-            val file = ArtworkStore.artFile(dir, name)
-            val bmp = if (file.exists()) {
+            val bmp = run {
                 try {
                     // Roughly lockscreen-sized; full-res covers are wasted here.
                     val bounds = android.graphics.BitmapFactory.Options().apply {
@@ -177,12 +185,15 @@ object PlaybackSession {
                     Log.w(TAG, "Art decode failed for $name: ${e.message}")
                     null
                 }
-            } else null
+            }
 
             main.post {
-                artBitmap = bmp
-                artBitmapKey = name
-                if (bmp != null) publish()
+                artDecodePending = null
+                if (bmp != null) {
+                    artBitmap = bmp
+                    artBitmapKey = name
+                    publish()
+                }
             }
         }
         return null
