@@ -12,8 +12,8 @@ android {
         applicationId "com.beatit.app"
         minSdk 26
         targetSdk 34
-        versionCode 20
-        versionName "1.19-fullscreen"
+        versionCode 21
+        versionName "1.20-oem-fixes"
     }
 
     buildTypes {

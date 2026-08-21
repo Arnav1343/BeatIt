@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.BeatIt" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#000000</item>
+        <!-- The page's own base background colour. The window is painted with this before the
+             WebView has anything to show, so the gap at startup reads as the
+             app's own background rather than as a dead black screen. -->
+        <item name="android:windowBackground">#0a0a0a</item>
 
         <!-- Edge to edge: the colour wash should run behind the status and
              navigation bars rather than stopping at a black band. The page

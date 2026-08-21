@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import java.io.File
@@ -14,7 +13,6 @@ import java.io.File
 class MusicServerService : Service() {
 
     private var server: BeatItServer? = null
-    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -41,10 +39,9 @@ class MusicServerService : Service() {
             startForeground(1, buildNotification("BeatIt is running"))
         }
 
-        // Acquire a partial wake lock so downloads don't stall when screen is off
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BeatIt::DownloadLock")
-        wakeLock?.acquire()
+        // The wake lock is no longer held for the service's whole lifetime —
+        // PowerGate takes it only while something is playing or downloading.
+        PowerGate.init(this)
 
         BatchManager.init(this, musicDir)
 
@@ -63,13 +60,8 @@ class MusicServerService : Service() {
     override fun onDestroy() {
         PlaybackSession.release()
         server?.stop()
-        wakeLock?.let { if (it.isHeld) it.release() }
+        PowerGate.release()
         super.onDestroy()
-    }
-
-    fun updateNotification(text: String) {
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(1, buildNotification(text))
     }
 
     private fun buildNotification(text: String): Notification {

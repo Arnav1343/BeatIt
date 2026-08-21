@@ -16,7 +16,9 @@ data class TaskStatus(
     val status: String,          // extracting | downloading | paused | done | error
     val percent: Int = 0,
     val result: Map<String, Any>? = null,
-    val error: String? = null
+    val error: String? = null,
+    /** Set on every write, so this is really "last updated". Used for eviction. */
+    val touchedAt: Long = System.currentTimeMillis()
 )
 
 class DownloadManager(
@@ -29,6 +31,7 @@ class DownloadManager(
         private const val INITIAL_RETRY_DELAY_MS = 2000L  // 2 seconds
         private const val MAX_RETRY_DELAY_MS = 30000L     // 30 seconds max backoff
         private const val BUFFER_SIZE = 262144             // 256 KB
+        private const val FINISHED_TASK_TTL_MS = 600_000L  // 10 minutes
     }
 
     private val tasks = ConcurrentHashMap<String, TaskStatus>()
@@ -54,12 +57,28 @@ class DownloadManager(
         thumbnailUrl: String? = null
     ): String {
         val taskId = UUID.randomUUID().toString()
+        sweepFinishedTasks()
         tasks[taskId] = TaskStatus("extracting", 0)
 
         executor.submit {
             runDownload(taskId, videoUrl, title, quality, codec, thumbnailUrl)
         }
         return taskId
+    }
+
+    /**
+     * Forgets tasks that finished a while ago.
+     *
+     * Entries were only ever added, never removed, so every download left one
+     * behind for the life of the process. The page stops polling as soon as a
+     * task reports done or error, so holding them briefly past that is only
+     * for a late poll already in flight.
+     */
+    private fun sweepFinishedTasks() {
+        val cutoff = System.currentTimeMillis() - FINISHED_TASK_TTL_MS
+        tasks.entries.removeAll { (_, t) ->
+            (t.status == "done" || t.status == "error") && t.touchedAt < cutoff
+        }
     }
 
     fun getProgress(taskId: String): Map<String, Any?>? {
@@ -83,6 +102,8 @@ class DownloadManager(
         val extension = if (codec == "opus") "opus" else "mp3"
         val finalFile = File(musicDir, "${sanitize(title)}.$extension")
         val tempFile = File(musicDir, "${sanitize(title)}.$extension.tmp")
+        // Downloading is work worth staying awake for; released in the finally.
+        PowerGate.workStarted()
         try {
             // Step 1: Get audio stream URL (may be instant if pre-fetched)
             tasks[taskId] = TaskStatus("extracting", 0)
@@ -119,6 +140,8 @@ class DownloadManager(
         } catch (e: Exception) {
             tempFile.delete()
             tasks[taskId] = TaskStatus("error", error = e.message ?: "Unknown error")
+        } finally {
+            PowerGate.workFinished()
         }
     }
 

@@ -149,6 +149,9 @@ object BatchManager {
             return
         }
 
+        // Downloading is work worth staying awake for; the lock drops again
+        // in the finally below.
+        PowerGate.workStarted()
         try {
             track.status = TrackStatus.DOWNLOADING
             track.updatedAt = System.currentTimeMillis()
@@ -202,6 +205,7 @@ object BatchManager {
         } catch (e: Exception) {
             handleWorkerFailure(track, e)
         } finally {
+            PowerGate.workFinished()
             activeWorkerCount.decrementAndGet()
             trackWatchdogs.remove(track.id)
         }

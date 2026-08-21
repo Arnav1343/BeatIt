@@ -50,6 +50,7 @@ class YoutubeHelper {
      * can await it instead of starting a duplicate extraction.
      */
     fun prefetchStreamInfo(videoUrl: String) {
+        sweepCache()
         val cached = streamCache[videoUrl]
         if (cached != null && !cached.isExpired()) return
         if (pendingFetches.containsKey(videoUrl)) return
@@ -84,6 +85,7 @@ class YoutubeHelper {
      * 4. Piped instance fallback (if YouTube fails)
      */
     fun getAudioStreamUrl(videoUrl: String): Pair<String?, String?> {
+        sweepCache()
         // 1. Cache hit
         val cached = streamCache[videoUrl]
         if (cached != null && !cached.isExpired()) {
@@ -227,6 +229,19 @@ class YoutubeHelper {
         }
     }
 
+    /**
+     * Drops entries past their TTL.
+     *
+     * Nothing ever removed them before — an expired entry was only replaced
+     * if the same video was requested again — so the map grew for as long as
+     * the process lived. Small per entry, but it is one of several things
+     * that only misbehave after prolonged use.
+     */
+    private fun sweepCache() {
+        if (streamCache.size < CACHE_SWEEP_THRESHOLD) return
+        streamCache.entries.removeAll { it.value.isExpired() }
+    }
+
     fun suggestions(query: String): List<Map<String, Any?>> {
         return search(query, 8).map { item ->
             mapOf(
@@ -242,6 +257,7 @@ class YoutubeHelper {
     companion object {
         private var isInitialized = false
         private const val CACHE_TTL_MS = 3600_000L // 1 hour
+        private const val CACHE_SWEEP_THRESHOLD = 64
         private val streamCache = ConcurrentHashMap<String, CachedStream>()
         private val pendingFetches = ConcurrentHashMap<String, Future<String?>>()
         private val prefetchExecutor = Executors.newFixedThreadPool(5)

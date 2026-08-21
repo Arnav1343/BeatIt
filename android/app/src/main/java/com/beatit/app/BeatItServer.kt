@@ -37,8 +37,15 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
                 method == Method.POST && uri == "/api/delete" -> handleDelete(session)
                 else -> newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not found")
             }
-        } catch (e: Exception) {
-            jsonError(e.message ?: "Internal error")
+        } catch (t: Throwable) {
+            // Throwable, not Exception: an OutOfMemoryError raised while
+            // handling a request would otherwise escape this NanoHTTPD worker
+            // thread and reach the default uncaught handler, which kills the
+            // whole app process. A failed request is the better outcome —
+            // /api/suggestions runs a full YouTube search per keystroke, so
+            // this is a live risk on low-memory devices.
+            android.util.Log.e("BeatItServer", "Request failed: $uri", t)
+            jsonError(t.message ?: "Internal error")
         }
     }
 

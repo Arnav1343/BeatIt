@@ -100,6 +100,7 @@ object PlaybackSession {
         webView = null
         hasTrack = false
         playing = false
+        PowerGate.setPlaying(false)
         session?.isActive = false
         notify(buildIdleNotification())
     }
@@ -119,6 +120,10 @@ object PlaybackSession {
             Log.w(TAG, "Bad state payload: ${e.message}")
             return
         }
+        // The only place that knows whether audio is actually running, so it
+        // is also what decides whether the wake lock is warranted.
+        PowerGate.setPlaying(playing && hasTrack)
+
         // Arrives on a WebView JavaScript thread; the session and the
         // notification are main-thread business.
         main.post { publish() }
