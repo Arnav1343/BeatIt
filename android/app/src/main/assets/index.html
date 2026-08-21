@@ -10,18 +10,17 @@
 </head>
 
 <body>
+  <!-- Full-viewport colour wash, fed by --tint-a/b/c which applyArtTint()
+       derives from the current cover art. Sits behind everything. -->
+  <div class="ambient" aria-hidden="true">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <span class="blob blob-c"></span>
+  </div>
   <div class="canvas">
     <!-- Single iPod device — no floating elements -->
     <div class="device" id="device">
       <div class="screen" id="screen">
-
-        <!-- Drifting colour wash behind every view. Fed by --tint-a/b/c,
-             which applyArtTint() derives from the current cover art. -->
-        <div class="ambient" aria-hidden="true">
-          <span class="blob blob-a"></span>
-          <span class="blob blob-b"></span>
-          <span class="blob blob-c"></span>
-        </div>
 
         <!-- MENU VIEW -->
         <div class="view active" id="viewMenu">
