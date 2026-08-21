@@ -118,7 +118,11 @@ body {
 
 /* Device — integrated physical shell */
 .device {
-  width: 340px;
+  /* Was a fixed 340px, which left dead margins on anything wider and
+     made the app read as a rectangle floating on black. Fills the
+     viewport now, with a cap so it doesn't sprawl on a tablet. */
+  width: 100%;
+  max-width: 520px;
   max-height: var(--app-height, 100vh);
   height: var(--app-height, 100vh);
   background: transparent;
@@ -126,7 +130,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14px 16px 12px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 10px)
+    calc(env(safe-area-inset-right, 0px) + 14px)
+    calc(env(safe-area-inset-bottom, 0px) + 8px)
+    calc(env(safe-area-inset-left, 0px) + 14px);
   position: relative;
   user-select: none;
   box-shadow: none;
@@ -139,7 +147,7 @@ body {
 
 /* Screen — inset with subtle border */
 .screen {
-  width: 92%;
+  width: 100%;
   flex: 1 1 0;
   min-height: 0;
   max-height: 62vh;
@@ -240,7 +248,12 @@ body {
   display: none;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden
+  overflow-x: hidden;
+  /* A hard fling used to carry the list past its own bounds and hand the
+     scroll to the page underneath, which left content stranded off
+     screen. Contain it and keep momentum inside this box. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch
 }
 
 .view.active {
@@ -257,8 +270,12 @@ body {
   padding-top: 0
 }
 
-.view::-webkit-scrollbar {
-  width: 2px
+.view::-webkit-scrollbar,
+.library-list::-webkit-scrollbar,
+.batch-list::-webkit-scrollbar,
+.batch-track-list::-webkit-scrollbar {
+  width: 0;
+  height: 0
 }
 
 .view::-webkit-scrollbar-thumb {
@@ -1920,6 +1937,20 @@ body {
 
    The shared idea: rows are separated by spacing and a soft pill, not
    by hairlines and square accent blocks. */
+
+/* Flex children default to min-height:auto, so a long list refuses to
+   shrink inside the column and spills past the view instead of scrolling
+   within it. */
+.library-list,
+.batch-list,
+.batch-track-list,
+.menu-list {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+}
 
 /* ── Rows: library, suggestions, batches, tracks ───────────────── */
 .library-item,

@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.webkit.*
 import android.app.Activity
+import androidx.core.view.WindowCompat
 
 class MainActivity : Activity() {
 
@@ -12,6 +13,12 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Let the WebView draw under the system bars. Without this the window
+        // is inset for them and the wash stops at a black band top and bottom;
+        // the page re-insets its own content via env(safe-area-inset-*).
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         setContentView(R.layout.activity_main)
 
         // Start the foreground service (keeps server + downloads alive in background)

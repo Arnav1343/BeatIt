@@ -2,7 +2,21 @@
 <resources>
     <style name="Theme.BeatIt" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#000000</item>
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:navigationBarColor">#000000</item>
+
+        <!-- Edge to edge: the colour wash should run behind the status and
+             navigation bars rather than stopping at a black band. The page
+             keeps its content clear of them with env(safe-area-inset-*). -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+
+        <!-- Draw into the camera cutout / punch-hole area too, so there is no
+             letterbox on devices that have one. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+
+        <!-- Light content on a dark wash. -->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
