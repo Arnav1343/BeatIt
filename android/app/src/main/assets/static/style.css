@@ -27,23 +27,29 @@
   --screen-border: #333333;
   --screen-shadow: rgba(0, 0, 0, 0.6);
   --screen-glare: linear-gradient(165deg, rgba(255, 255, 255, 0.04) 0%, transparent 40%);
-  --header-color: #FF2E63;
+  --header-color: var(--accent);
   --text-primary: #f0f0f0;
-  --text-secondary: #FF2E63;
-  --text-muted: #775566;
-  --artwork-bg: #1a0a10;
-  --icon-color: #FF2E63;
-  --transport-icon: #FF2E63;
-  --bar-bg: #1a0a10;
-  --wheel-bg: radial-gradient(circle at center, #1c1015 0%, #100a0d 100%);
+  --text-secondary: var(--accent);
+  --text-muted: color-mix(in srgb, var(--accent) 38%, #8a8a8a);
+  --artwork-bg: color-mix(in srgb, var(--tint-solid) 20%, #120b0e);
+  --icon-color: var(--accent);
+  --transport-icon: var(--accent);
+  --bar-bg: color-mix(in srgb, var(--tint-solid) 22%, #120b0e);
+  --tint-solid: #1c1015;
+  --wheel-bg: radial-gradient(circle at 50% 38%,
+      color-mix(in srgb, var(--tint-solid) 34%, #14090c) 0%,
+      color-mix(in srgb, var(--tint-solid) 14%, #0b0608) 100%);
   --wheel-shadow-outer: rgba(0, 0, 0, 0.5);
-  --wheel-inner: rgba(255, 46, 99, 0.04);
-  --wheel-depression: inset 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 -2px 6px rgba(255, 46, 99, 0.03);
-  --center-bg: radial-gradient(circle at 40% 35%, #201218, #140a0e);
+  --wheel-inner: color-mix(in srgb, var(--accent) 6%, transparent);
+  --wheel-depression: inset 0 4px 14px rgba(0, 0, 0, 0.45),
+      inset 0 -2px 8px color-mix(in srgb, var(--accent) 5%, transparent);
+  --center-bg: radial-gradient(circle at 40% 35%,
+      color-mix(in srgb, var(--tint-solid) 42%, #1a0e13),
+      color-mix(in srgb, var(--tint-solid) 18%, #100809));
   --center-shadow: rgba(0, 0, 0, 0.6);
-  --center-inner: rgba(255, 46, 99, 0.06);
+  --center-inner: color-mix(in srgb, var(--accent) 12%, transparent);
   --center-raised: 0 3px 8px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --wheel-label-color: #FF2E63;
+  --wheel-label-color: var(--accent);
   --wheel-separator: rgba(255, 46, 99, 0.08);
   --divider: rgba(255, 46, 99, 0.1);
   --input-bg: rgba(255, 46, 99, 0.06);
@@ -136,7 +142,7 @@ body {
   width: 92%;
   flex: 1 1 0;
   min-height: 0;
-  max-height: 55vh;
+  max-height: 62vh;
   border-radius: 0;
   background: transparent;
   overflow: hidden;
@@ -288,8 +294,12 @@ body {
 }
 
 .np-artwork {
-  width: 132px;
-  height: 132px;
+  /* Roughly 62% of the screen width — large enough to be the subject of
+     the view, with the panels below still reading as a group. */
+  width: min(62%, 208px);
+  aspect-ratio: 1;
+  height: auto;
+  position: relative;
   border-radius: var(--glass-radius);
   background: var(--glass-bg);
   display: flex;
@@ -309,11 +319,26 @@ body {
   transform: scale(1.02)
 }
 
+/* Two stacked layers so one cover can dissolve into the next instead of
+   snapping. applyArtwork() alternates which one is on top. */
 .np-artwork img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block
+  display: block;
+  opacity: 0;
+  transition: opacity 0.55s ease
+}
+
+.np-artwork img.showing {
+  opacity: 1
+}
+
+.np-artwork-placeholder {
+  position: absolute;
+  transition: opacity 0.4s ease
 }
 
 .np-artwork-placeholder {
@@ -392,7 +417,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   color: var(--transport-icon);
   opacity: 0.55;
-  transition: opacity 0.15s ease, background 0.15s ease
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.9s ease
 }
 
 .transport-icon-btn:hover,
@@ -470,8 +495,10 @@ body {
   height: 185px;
   border-radius: 50%;
   position: relative;
-  margin-top: 10px;
-  margin-bottom: 10px;
+  /* Pushed to the bottom of the device column rather than floating just
+     under the screen, which left an awkward gap beneath it. */
+  margin-top: auto;
+  margin-bottom: 22px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -483,7 +510,7 @@ body {
     inset -2px -2px 6px rgba(0, 0, 0, 0.3),
     0 1px 0 rgba(255, 255, 255, 0.02),
     0 2px 8px var(--wheel-shadow-outer);
-  transition: all 0.4s ease;
+  transition: background 0.9s ease, box-shadow 0.9s ease;
   z-index: 1;
 }
 
@@ -518,7 +545,7 @@ body {
     0 1px 3px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 var(--center-inner),
     inset 0 -1px 2px rgba(0, 0, 0, 0.2);
-  transition: all 0.1s ease;
+  transition: background 0.9s ease, transform 0.1s ease, filter 0.1s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation
 }
@@ -540,7 +567,7 @@ body {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: all 0.06s;
+  transition: color 0.9s ease, opacity 0.06s ease, transform 0.06s ease;
   display: flex;
   align-items: center;
   justify-content: center;

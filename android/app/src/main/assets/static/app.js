@@ -577,15 +577,19 @@
 
     const npArtworkEl = $('#npArtwork');
     const npPlaceholder = npArtworkEl?.querySelector('.np-artwork-placeholder');
-    let npArtImg = null;              // reused, never re-created, to avoid reflow/flicker
+    let npArtLayers = [];             // two stacked <img>, alternated to crossfade
+    let npArtFront = 0;
     let lastArtKey = null;            // updateNowPlaying() fires on every play/pause too
     const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
 
-    function setTint(a, b, c, accent) {
+    function setTint(a, b, c, accent, solid) {
         const root = document.documentElement.style;
         root.setProperty('--tint-a', a);
         root.setProperty('--tint-b', b);
         root.setProperty('--tint-c', c);
+        // Opaque version for the wheel: color-mix against a translucent
+        // colour washes out rather than tints.
+        if (solid) root.setProperty('--tint-solid', solid);
         if (accent) {
             root.setProperty('--accent', accent);
             root.setProperty('--accent-fill', 'linear-gradient(90deg,' + accent + ',' + accent + '99)');
@@ -624,15 +628,16 @@
         return [
             `hsla(${hue},70%,45%,0.38)`,
             `hsla(${(hue + 40) % 360},65%,40%,0.30)`,
-            `hsla(${(hue + 310) % 360},60%,35%,0.24)`
+            `hsla(${(hue + 310) % 360},60%,35%,0.24)`,
+            `hsl(${hue},55%,32%)`
         ];
     }
 
     function applyHashFallback(title) {
-        const [a, b, c] = hashTint(title || 'BeatIt');
-        setTint(a, b, c, null);
-        if (npArtImg) npArtImg.classList.add('hidden');
-        if (npPlaceholder) npPlaceholder.classList.remove('hidden');
+        const [a, b, c, solid] = hashTint(title || 'BeatIt');
+        setTint(a, b, c, null, solid);
+        npArtLayers.forEach(l => l.classList.remove('showing'));
+        if (npPlaceholder) npPlaceholder.style.opacity = '1';
     }
 
     /** Pull 3 dominant colours out of the artwork and push them into CSS. */
@@ -663,7 +668,8 @@
                 ? `rgb(${p0.r},${p0.g},${p0.b})`
                 : themeAccent;
 
-            setTint(rgba(p0, 0.42), rgba(p1, 0.32), rgba(p2, 0.26), accent);
+            setTint(rgba(p0, 0.42), rgba(p1, 0.32), rgba(p2, 0.26), accent,
+                    `rgb(${p0.r},${p0.g},${p0.b})`);
         } catch (e) {
             // Tainted canvas or decode failure — degrade, never break playback.
             applyHashFallback(title);
@@ -673,37 +679,43 @@
     /** Back to the plain theme when nothing is playing. */
     function clearArtwork() {
         lastArtKey = null;
-        setTint('transparent', 'transparent', 'transparent', themeAccent);
-        if (npArtImg) npArtImg.classList.add('hidden');
-        if (npPlaceholder) npPlaceholder.classList.remove('hidden');
+        setTint('transparent', 'transparent', 'transparent', themeAccent, '#1c1015');
+        npArtLayers.forEach(l => l.classList.remove('showing'));
+        if (npPlaceholder) npPlaceholder.style.opacity = '1';
     }
 
     function applyArtwork(filename, title) {
         if (!npArtworkEl) return;
-        if (lastArtKey === filename) return;   // called on every play/pause; only react to track changes
+        if (lastArtKey === filename) return;   // fires on every play/pause; only react to track changes
         lastArtKey = filename;
 
-        if (!npArtImg) {
-            npArtImg = document.createElement('img');
-            npArtImg.alt = '';
-            npArtworkEl.appendChild(npArtImg);
+        if (!npArtLayers.length) {
+            for (let i = 0; i < 2; i++) {
+                const img = document.createElement('img');
+                img.alt = '';
+                npArtworkEl.appendChild(img);
+                npArtLayers.push(img);
+            }
         }
 
-        // Assume no art until it loads, so we never show a broken frame.
-        applyHashFallback(title);
+        // Hold the outgoing colours until the new cover has decoded, so the
+        // wash and the artwork change together rather than in two steps.
+        const incoming = npArtLayers[npArtFront ^ 1];
+        const outgoing = npArtLayers[npArtFront];
 
         const url = '/api/art/' + encodeURIComponent(filename);
-        npArtImg.onload = () => {
-            npArtImg.classList.remove('hidden');
-            if (npPlaceholder) npPlaceholder.classList.add('hidden');
-            extractTint(npArtImg, title);
+        incoming.onload = () => {
+            incoming.classList.add('showing');
+            outgoing.classList.remove('showing');
+            npArtFront ^= 1;
+            if (npPlaceholder) npPlaceholder.style.opacity = '0';
+            extractTint(incoming, title);
         };
-        npArtImg.onerror = () => {
-            // 404 also tells the server to go look this one up in the
-            // background; a later refresh will find it.
+        incoming.onerror = () => {
+            // Also nudges the server to look this one up in the background.
             applyHashFallback(title);
         };
-        npArtImg.src = url;
+        incoming.src = url;
     }
 
     function playSong(fn, title) {
