@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.*
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.app.Activity
 import androidx.core.view.WindowCompat
 
@@ -21,6 +23,13 @@ class MainActivity : Activity() {
 
     /** Main-frame load attempts since the WebView was built. */
     private var loadAttempts = 0
+
+    /** Latest window insets, in CSS pixels. */
+    private var hasInsets = false
+    private var insetTop = 0f
+    private var insetRight = 0f
+    private var insetBottom = 0f
+    private var insetLeft = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,6 +105,7 @@ class MainActivity : Activity() {
 
         webView = view
         setupWebView()
+        observeInsets(view)
 
         // Load straight away rather than sleeping first. The server usually
         // is up by now, and when it isn't, onReceivedError retries — a fixed
@@ -105,7 +115,56 @@ class MainActivity : Activity() {
         view.loadUrl(SERVER_URL)
     }
 
+    /**
+     * Publishes the window insets to the page as --inset-top/right/bottom/left.
+     *
+     * The page cannot work these out for itself. env(safe-area-inset-*) in
+     * Android WebView reports the display cutout and nothing else — not the
+     * status bar, not the navigation bar — so on a phone whose status bar is
+     * not itself a cutout it comes back 0 and the first row of every view
+     * renders underneath the clock. Measured on the Vivo: 0px, with the
+     * search field sitting under the status bar.
+     */
+    private fun observeInsets(view: WebView) {
+        ViewCompat.setOnApplyWindowInsetsListener(view) { _, windowInsets ->
+            val i = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            val d = resources.displayMetrics.density
+            // CSS pixels, not device pixels.
+            insetTop = i.top / d
+            insetRight = i.right / d
+            insetBottom = i.bottom / d
+            insetLeft = i.left / d
+            hasInsets = true
+            Log.d(TAG, "insets css top=$insetTop right=$insetRight bottom=$insetBottom left=$insetLeft")
+            pushInsets()
+            windowInsets
+        }
+        // The window's insets were dispatched before this listener existed, and
+        // nothing re-dispatches them on its own — without asking, the callback
+        // simply never fires and the page keeps its 0px fallback.
+        ViewCompat.requestApplyInsets(view)
+    }
+
+    /**
+     * Insets almost always arrive before the page exists, so this runs again
+     * from onPageFinished. Without that the very first layout — the one the
+     * user actually sees on launch — is the one that misses them.
+     */
+    private fun pushInsets() {
+        if (!hasInsets) return
+        val js = "(function(s){" +
+            "s.setProperty('--inset-top','" + insetTop + "px');" +
+            "s.setProperty('--inset-right','" + insetRight + "px');" +
+            "s.setProperty('--inset-bottom','" + insetBottom + "px');" +
+            "s.setProperty('--inset-left','" + insetLeft + "px');" +
+            "})(document.documentElement.style)"
+        webView.evaluateJavascript(js, null)
+    }
+
     private fun setupWebView() {
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -143,6 +202,10 @@ class MainActivity : Activity() {
                 val intent = Intent(Intent.ACTION_VIEW, url)
                 startActivity(intent)
                 return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                pushInsets()
             }
 
             override fun onReceivedError(

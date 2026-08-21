@@ -130,11 +130,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* env(safe-area-inset-*) only reports the display cutout in Android
+     WebView — never the status or navigation bar — so on a phone whose
+     status bar is not itself a cutout it comes back 0 and the first row
+     of every view ends up underneath the clock. MainActivity pushes the
+     real window insets in as --inset-*; take whichever is larger so this
+     still behaves on a normal browser, where only env() exists. */
   padding:
-    calc(env(safe-area-inset-top, 0px) + 10px)
-    calc(env(safe-area-inset-right, 0px) + 14px)
-    calc(env(safe-area-inset-bottom, 0px) + 8px)
-    calc(env(safe-area-inset-left, 0px) + 14px);
+    calc(max(env(safe-area-inset-top, 0px), var(--inset-top, 0px)) + 14px)
+    calc(max(env(safe-area-inset-right, 0px), var(--inset-right, 0px)) + 14px)
+    calc(max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px)) + 8px)
+    calc(max(env(safe-area-inset-left, 0px), var(--inset-left, 0px)) + 14px);
   position: relative;
   user-select: none;
   box-shadow: none;
@@ -1248,7 +1254,16 @@ body {
     height: var(--app-height, 100vh);
     border-radius: 0;
     border: none;
-    padding: 10px 14px 14px
+    /* Must repeat the inset-aware padding from .device above. A phone is
+       narrower than 420px in CSS pixels — 384px on the Vivo this was found
+       on — so this block applies to essentially every handset, and the flat
+       10px it used to set was quietly undoing the safe-area padding on all
+       of them. */
+    padding:
+      calc(max(env(safe-area-inset-top, 0px), var(--inset-top, 0px)) + 14px)
+      calc(max(env(safe-area-inset-right, 0px), var(--inset-right, 0px)) + 14px)
+      calc(max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px)) + 14px)
+      calc(max(env(safe-area-inset-left, 0px), var(--inset-left, 0px)) + 14px)
   }
 
   .screen {
@@ -2035,7 +2050,6 @@ body {
   padding: 12px 14px;
 }
 
-.quality-selector,
 .quality-opt,
 .fmt-btn {
   border-radius: var(--glass-radius-sm);
@@ -2044,10 +2058,18 @@ body {
   transition: background 0.18s ease, border-color 0.18s ease;
 }
 
-.quality-opt.selected,
+.quality-opt.active,
 .fmt-btn.active {
   background: var(--glass-bg-strong);
   border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The tile's label is a child span carrying its own colour, so it does not
+   inherit the accent above — without this the selected quality reads white
+   while the selected format reads accent, and the two look like different
+   kinds of selection. */
+.quality-opt.active .q-name {
   color: var(--accent);
 }
 
