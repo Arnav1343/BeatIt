@@ -12,26 +12,14 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.webkit.WebView
-import org.json.JSONObject
 import java.io.File
 
 /**
  * Lockscreen and notification transport controls.
  *
- * Playback itself stays where it already works: an <audio> element inside
- * the WebView. Android WebView does not implement the Media Session API —
- * navigator.mediaSession is undefined there — so the page cannot publish a
- * media session of its own, and Android will never show controls for it.
- *
- * This object supplies the missing half natively. The page pushes its state
- * here through the AndroidMedia JavaScript bridge, and transport commands
- * travel the other way by calling window.BeatItRemote inside the page.
- *
- * Threading: the session is created with the default handler, so callbacks
- * arrive on the main looper — the same thread that owns the WebView, which
- * is what makes calling evaluateJavascript() from them legal. Giving the
- * session its own handler thread would break that silently.
+ * Purely a view of NativePlayer: the player calls update() when its state
+ * changes, and the session / notification buttons call back into it. Nothing
+ * here depends on the Activity or the WebView being alive.
  */
 object PlaybackSession {
 
@@ -39,13 +27,15 @@ object PlaybackSession {
     private const val NOTIF_ID = MusicServerService.NOTIF_ID
     private const val CHANNEL_ID = MusicServerService.CHANNEL_ID
 
+    /** A position this far from where playback should be counts as a seek. */
+    private const val SEEK_JUMP_MS = 2_000L
+
     const val ACTION_TOGGLE = "com.beatit.app.TOGGLE"
     const val ACTION_NEXT = "com.beatit.app.NEXT"
     const val ACTION_PREV = "com.beatit.app.PREV"
 
     private var appContext: Context? = null
     private var session: MediaSession? = null
-    private var webView: WebView? = null
     private val main = Handler(Looper.getMainLooper())
 
     // Last state the page reported.
@@ -56,6 +46,7 @@ object PlaybackSession {
     private var playing = false
     private var hasTrack = false
     private var filename = ""
+    private var lastStateAt = 0L
 
     // Cover art for the lockscreen. Decoded off the main thread and cached,
     // because publish() runs on the main looper and BitmapFactory on a
@@ -74,55 +65,52 @@ object PlaybackSession {
 
         session = MediaSession(ctx, "BeatIt").apply {
             setCallback(object : MediaSession.Callback() {
-                override fun onPlay() = runRemote("play")
-                override fun onPause() = runRemote("pause")
-                override fun onSkipToNext() = runRemote("next")
-                override fun onSkipToPrevious() = runRemote("prev")
-                override fun onStop() = runRemote("pause")
-                override fun onSeekTo(pos: Long) =
-                    runJs("window.BeatItRemote && window.BeatItRemote.seek($pos)")
+                override fun onPlay() = NativePlayer.resume()
+                override fun onPause() = NativePlayer.pause()
+                override fun onSkipToNext() = NativePlayer.next()
+                override fun onSkipToPrevious() = NativePlayer.prev()
+                override fun onStop() = NativePlayer.pause()
+                override fun onSeekTo(pos: Long) = NativePlayer.seek(pos)
             })
         }
         Log.d(TAG, "MediaSession created")
     }
 
-    /** MainActivity hands over the WebView that hosts playback. */
-    fun attachWebView(view: WebView) {
-        webView = view
-    }
+    /** Called by NativePlayer whenever its state changes. */
+    fun update(
+        newTitle: String, newArtist: String, newDuration: Long,
+        newPosition: Long, newPlaying: Boolean, newHasTrack: Boolean,
+        newFilename: String
+    ) {
+        val changed = synchronized(this) {
+            val now = android.os.SystemClock.elapsedRealtime()
 
-    /**
-     * The activity is going away, so the <audio> element goes with it.
-     * Drop the session rather than leaving a notification whose buttons
-     * would quietly do nothing.
-     */
-    fun detachWebView() {
-        webView = null
-        hasTrack = false
-        playing = false
-        PowerGate.setPlaying(false)
-        session?.isActive = false
-        notify(buildIdleNotification())
-    }
+            // Where the lockscreen scrubber already thinks we are, since the
+            // session advances it on its own while PLAYING.
+            val expected = positionMs + if (playing) now - lastStateAt else 0L
+            val seeked = kotlin.math.abs(newPosition - expected) > SEEK_JUMP_MS
 
-    /** Called from the page via the AndroidMedia bridge. */
-    fun updateFromPage(json: String) {
-        try {
-            val o = JSONObject(json)
-            title = o.optString("title", "")
-            artist = o.optString("artist", "BeatIt")
-            durationMs = o.optLong("durationMs", 0L)
-            positionMs = o.optLong("positionMs", 0L)
-            playing = o.optBoolean("playing", false)
-            hasTrack = o.optBoolean("hasTrack", false)
-            filename = o.optString("filename", "")
-        } catch (e: Exception) {
-            Log.w(TAG, "Bad state payload: ${e.message}")
-            return
+            val changed = newTitle != title || newArtist != artist || newDuration != durationMs ||
+                newPlaying != playing || newHasTrack != hasTrack || newFilename != filename || seeked
+
+            title = newTitle; artist = newArtist; durationMs = newDuration
+            positionMs = newPosition; playing = newPlaying; hasTrack = newHasTrack
+            filename = newFilename
+            lastStateAt = now
+            changed
         }
+
         // The only place that knows whether audio is actually running, so it
-        // is also what decides whether the wake lock is warranted.
+        // is also what decides whether the wake lock is warranted. Runs on
+        // every push, changed or not: each one renews the lock's timeout.
         PowerGate.setPlaying(playing && hasTrack)
+
+        // The page pushes about once a second while playing, but a re-post of
+        // the notification and metadata every second makes OEM lockscreens
+        // flicker and can eat button taps. The session extrapolates position
+        // by itself, so only a real change (track, play/pause, seek) needs
+        // publishing.
+        if (!changed) return
 
         // Arrives on a WebView JavaScript thread; the session and the
         // notification are main-thread business.
@@ -132,9 +120,9 @@ object PlaybackSession {
     /** Handles the notification button intents routed through the service. */
     fun handleAction(action: String?) {
         when (action) {
-            ACTION_TOGGLE -> runRemote("toggle")
-            ACTION_NEXT -> runRemote("next")
-            ACTION_PREV -> runRemote("prev")
+            ACTION_TOGGLE -> NativePlayer.toggle()
+            ACTION_NEXT -> NativePlayer.next()
+            ACTION_PREV -> NativePlayer.prev()
         }
     }
 
@@ -146,7 +134,6 @@ object PlaybackSession {
     fun release() {
         session?.release()
         session = null
-        webView = null
         appContext = null
     }
 
@@ -239,7 +226,8 @@ object PlaybackSession {
                 .setState(
                     if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
                     positionMs,
-                    1.0f
+                    // 0 while paused, or the scrubber keeps creeping forward.
+                    if (playing) 1.0f else 0f
                 )
                 .build()
         )
@@ -258,7 +246,9 @@ object PlaybackSession {
             .setContentText(artist)
             // MediaStyle feeds the lockscreen from session metadata, but the
             // collapsed notification draws its own large icon.
-            .apply { artBitmap?.let { setLargeIcon(it) } }
+            // Only this track's cover: artBitmap lingers from the previous
+            // track while the new one decodes, or forever if it has no art.
+            .apply { artBitmap?.takeIf { artBitmapKey == filename }?.let { setLargeIcon(it) } }
             .addAction(action(android.R.drawable.ic_media_previous, "Previous", ACTION_PREV))
             .addAction(
                 if (playing) action(android.R.drawable.ic_media_pause, "Pause", ACTION_TOGGLE)
@@ -301,18 +291,5 @@ object PlaybackSession {
         val ctx = appContext ?: return
         (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(NOTIF_ID, n)
-    }
-
-    private fun runRemote(fn: String) = runJs("window.BeatItRemote && window.BeatItRemote.$fn()")
-
-    private fun runJs(script: String) {
-        val view = webView
-        if (view == null) {
-            Log.w(TAG, "No WebView attached; dropping: $script")
-            return
-        }
-        // Callbacks already arrive on the main looper, but notification
-        // intents come back through the service, so post to be safe.
-        view.post { view.evaluateJavascript(script, null) }
     }
 }

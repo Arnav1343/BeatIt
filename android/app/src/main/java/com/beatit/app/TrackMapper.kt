@@ -9,9 +9,15 @@ object TrackMapper {
     suspend fun mapTrack(
         track: Track,
         dao: BatchDao,
-        youtubeHelper: YoutubeHelper
+        youtubeHelper: YoutubeHelper,
+        excludeUrl: String? = null
     ): Pair<String?, Double> {
         val fingerprint = "${track.fingerprint}:$MATCHER_VERSION"
+
+        // "Try Again": the cache and the default query would just hand back the
+        // candidate the user already rejected, so skip the cache, vary the
+        // query, and drop that candidate from the results.
+        if (excludeUrl != null) return mapAlternative(track, youtubeHelper, excludeUrl)
 
         // 1. Check persistent Match Cache
         val cached = dao.getMatchCache(fingerprint)
@@ -54,6 +60,27 @@ object TrackMapper {
         }
 
         return Pair(videoId, confidence)
+    }
+
+    private fun mapAlternative(
+        track: Track,
+        youtubeHelper: YoutubeHelper,
+        excludeUrl: String
+    ): Pair<String?, Double> {
+        val base = "${track.title} ${track.artist}"
+        for (query in listOf("$base audio", "$base official audio", "$base lyrics")) {
+            val results = youtubeHelper.search(query, 10).filter { it.url != excludeUrl }
+            if (results.isEmpty()) continue
+            val best = results
+                .map { it to calculateScore(track, it) }
+                .sortedWith(compareByDescending<Pair<StreamInfoItem, Double>> { it.second }
+                    .thenBy { abs((track.durationSeconds ?: 0) - it.first.duration.toInt()) })
+                .first()
+            // Deliberately not written to the match cache: this is a user-driven
+            // second opinion, not a verified match.
+            return Pair(best.first.url, best.second)
+        }
+        return Pair(null, 0.0)
     }
 
     private fun calculateScore(track: Track, item: StreamInfoItem): Double {

@@ -323,6 +323,11 @@ class BeatItServer(private val context: Context, port: Int) : NanoHTTPD(port) {
         val dao = AppDatabase.getDatabase(context).batchDao()
         val track = runBlocking { dao.getTrack(trackId) } ?: return jsonError("Track not found")
 
+        if (action == "rematch") {
+            BatchManager.rematch(trackId)
+            return jsonOk(mapOf("success" to true))
+        }
+
         val nextStatus = when (action) {
             "accept" -> {
                 if (videoId != null) track.youtubeVideoId = videoId

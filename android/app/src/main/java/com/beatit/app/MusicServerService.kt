@@ -26,6 +26,7 @@ class MusicServerService : Service() {
             ?: File(filesDir, "Music")
 
         PlaybackSession.init(this, musicDir)
+        NativePlayer.init(this, musicDir)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Declare mediaPlayback so this service is exempt from the background
             // execution limits Android imposes on plain dataSync services — that's
@@ -58,6 +59,7 @@ class MusicServerService : Service() {
     }
 
     override fun onDestroy() {
+        NativePlayer.release()
         PlaybackSession.release()
         server?.stop()
         PowerGate.release()

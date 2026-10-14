@@ -182,7 +182,12 @@ object BatchManager {
                 // Cover art comes free on this path — thumbnailUrl was captured
                 // during extraction. Best-effort; never fails the track.
                 try {
-                    ArtworkStore.saveFrom(track.thumbnailUrl, musicDir, finalFile.name)
+                    // No usable cover (e.g. the Spotify lookup failed): fall
+                    // back to searching by title, as single downloads do,
+                    // rather than leaving the track without art.
+                    if (!ArtworkStore.saveFrom(track.thumbnailUrl, musicDir, finalFile.name)) {
+                        ArtworkStore.enqueueLookup(musicDir, finalFile.name, youtubeHelper)
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Artwork save failed for ${track.title}: ${e.message}")
                 }
@@ -330,6 +335,57 @@ object BatchManager {
             track.updatedAt = System.currentTimeMillis()
             dao.updateTrack(track)
             updateBatchState(track.batchId)
+        }
+    }
+
+    /**
+     * "Try Again" on a low-confidence track: look for a different candidate
+     * than the one the user just declined. Runs in the background; the page
+     * sees the track go MATCHING and then land on QUEUED (good match) or back
+     * on MATCHED_LOW_CONFIDENCE (new candidate to review).
+     */
+    fun rematch(trackId: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val track = dao.getTrack(trackId) ?: return@launch
+                val previous = track.youtubeVideoId
+                track.status = TrackStatus.MATCHING
+                track.updatedAt = System.currentTimeMillis()
+                dao.updateTrack(track)
+                updateBatchState(track.batchId)
+
+                val (videoId, confidence) = TrackMapper.mapTrack(track, dao, youtubeHelper, excludeUrl = previous)
+                if (videoId == null) {
+                    // Nothing else to offer: keep the old candidate reviewable.
+                    track.errorCode = "No other candidates found"
+                    track.status = TrackStatus.MATCHED_LOW_CONFIDENCE
+                } else {
+                    track.youtubeVideoId = videoId
+                    track.matchConfidence = confidence
+                    track.errorCode = null
+                    if (confidence >= 0.75) {
+                        track.status = TrackStatus.QUEUED
+                        youtubeHelper.prefetchStreamInfo(videoId)
+                    } else {
+                        track.status = TrackStatus.MATCHED_LOW_CONFIDENCE
+                    }
+                }
+                track.updatedAt = System.currentTimeMillis()
+                dao.updateTrack(track)
+                updateBatchState(track.batchId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Rematch failed for $trackId: ${e.message}", e)
+                // Never leave the track parked in MATCHING with nobody working on it.
+                runCatching {
+                    dao.getTrack(trackId)?.let {
+                        it.status = TrackStatus.MATCHED_LOW_CONFIDENCE
+                        it.errorCode = "Retry failed: ${e.message}"
+                        it.updatedAt = System.currentTimeMillis()
+                        dao.updateTrack(it)
+                        updateBatchState(it.batchId)
+                    }
+                }
+            }
         }
     }
 

@@ -57,37 +57,64 @@
         }
     }
 
-    // ─── Native transport controls (lockscreen / notification) ─────
-    // Because WebView has no Media Session API, the native side owns the
-    // MediaSession instead. State goes out through the AndroidMedia bridge;
-    // commands come back in by calling window.BeatItRemote. Absent on the
-    // desktop build, where the real Media Session API above does the job.
-    let lastNativePush = 0;
+    // ─── Native player (Android) ───────────────────────────────────
+    // On Android the audio is played by the foreground service, not by the
+    // <audio> element, so it survives the Activity being destroyed. This page
+    // is a remote control and a view of that player: it pushes the library
+    // order and shuffle/repeat in, sends transport commands, and polls state
+    // so the UI follows track changes made from the notification or at the
+    // end of a song. On the desktop build `native` is null and <audio> plays.
+    const native = window.AndroidPlayer || null;
+    let pollTimer = null;
 
-    function pushNativeState() {
-        if (!window.AndroidMedia) return;
-        try {
-            window.AndroidMedia.updateState(JSON.stringify({
-                title: currentSong ? (currentSong.title || 'Unknown') : '',
-                artist: 'BeatIt',
-                durationMs: Math.round((audio.duration || 0) * 1000),
-                positionMs: Math.round((audio.currentTime || 0) * 1000),
-                playing: isPlaying,
-                hasTrack: !!currentSong,
-                // Just the name — the native side resolves it to a path.
-                filename: currentSong ? currentSong.filename : ''
-            }));
-        } catch (e) { /* bridge missing or page tearing down */ }
+    function getPos() { return native ? nativeState.positionMs / 1000 : (audio.currentTime || 0); }
+    function getDur() { return native ? nativeState.durationMs / 1000 : (audio.duration || 0); }
+    function seekTo(sec) {
+        if (native) { native.seek(Math.round(sec * 1000)); nativeState.positionMs = Math.round(sec * 1000); renderProgress(); }
+        else audio.currentTime = sec;
+    }
+    function pushQueue() {
+        if (!native) return;
+        try { native.setQueue(JSON.stringify(library.map(s => ({ filename: s.filename, title: s.title })))); } catch (e) { }
+    }
+    function pushModes() { if (native) try { native.setModes(isShuffle, isRepeat); } catch (e) { } }
+
+    let nativeState = { hasTrack: false, filename: '', title: '', playing: false, positionMs: 0, durationMs: 0 };
+
+    function syncNative() {
+        if (!native) return;
+        let st;
+        try { st = JSON.parse(native.state()); } catch (e) { return; }
+        const trackChanged = st.filename !== (nativeState.filename || '');
+        const playChanged = st.playing !== nativeState.playing;
+        nativeState = st;
+        if (trackChanged || playChanged) {
+            if (st.hasTrack) {
+                currentSong = { filename: st.filename, title: st.title };
+                currentSongIndex = library.findIndex(x => x.filename === st.filename);
+            } else { currentSong = null; currentSongIndex = -1; }
+            isPlaying = st.playing && st.hasTrack;
+            updateNowPlaying();
+            refreshLibrary();
+        }
+        renderProgress();
+    }
+
+    function startNativePolling() {
+        if (!native || pollTimer) return;
+        pollTimer = setInterval(syncNative, 500);
+        document.addEventListener('visibilitychange', syncNative);
+        window.addEventListener('focus', syncNative);
+        syncNative();
     }
 
     window.BeatItRemote = {
-        play() { if (!isPlaying) togglePlay(); },
-        pause() { if (isPlaying) togglePlay(); },
-        toggle() { togglePlay(); },
-        next() { nextTrack(); },
-        prev() { prevTrack(); },
-        seek(ms) {
-            if (audio.duration) { audio.currentTime = ms / 1000; pushNativeState(); }
+        // Android Back. Returns true when the page consumed it; false means
+        // we are at the top level and the app should go to the background.
+        back() {
+            if (currentView === 'menu') return false;
+            goBack();
+            return true;
         }
     };
 
@@ -231,9 +258,14 @@
 
         if (action === 'manual') {
             const track = batchTracks.find(t => t.id === activeTrackId);
-            if (track) searchInput.value = track.title;
-            downloadBtn.textContent = 'Pick for Import';
+            // showView('search') resets the whole search page, so the query and
+            // the button label have to be set after it, not before.
             showView('search');
+            if (track) {
+                searchInput.value = track.title + (track.artist ? ' ' + track.artist : '');
+                searchInput.dispatchEvent(new Event('input'));
+            }
+            downloadBtn.textContent = 'Pick for Import';
             return;
         }
 
@@ -461,24 +493,25 @@
     async function doDownload() {
         if (!lastSearchResult) return;
 
-        if (activeTrackId) {
-            const videoId = lastSearchResult.url.includes('v=') ? lastSearchResult.url.split('v=')[1].split('&')[0] : null;
-            if (videoId) {
-                showLoading('Attaching...');
-                try {
-                    await fetch('/api/import/action', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ track_id: activeTrackId, action: 'accept', video_id: videoId })
-                    });
-                    activeTrackId = null;
-                    downloadBtn.textContent = 'Download Audio';
-                    showToast('Attached to batch', 'success');
-                    showView('batchDetail');
-                } catch { showToast('Failed to attach', 'error'); }
-                finally { hideLoading(); }
-                return;
-            }
+        if (activeTrackId && lastSearchResult.url) {
+            // The full URL, not a bare id: the batch downloader hands this
+            // string straight to NewPipe, which needs a URL.
+            showLoading('Attaching...');
+            try {
+                const r = await fetch('/api/import/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track_id: activeTrackId, action: 'accept', video_id: lastSearchResult.url })
+                });
+                const d = await r.json();
+                if (!d.success) { showToast(d.error || 'Failed to attach', 'error'); return; }
+                activeTrackId = null;
+                downloadBtn.textContent = 'Download Audio';
+                showToast('Attached to batch', 'success');
+                showView('batchDetail');
+            } catch { showToast('Failed to attach', 'error'); }
+            finally { hideLoading(); }
+            return;
         }
 
         downloadBtn.disabled = true; downloadStatus.textContent = 'Starting...'; downloadStatus.className = 'download-status';
@@ -535,11 +568,13 @@
 
 
     downloadBtn.addEventListener('click', doDownload);
-    $('#btnShuffle')?.addEventListener('click', () => { isShuffle = !isShuffle; $('#btnShuffle').classList.toggle('active', isShuffle); showToast(isShuffle ? 'Shuffle on' : 'Shuffle off'); });
-    $('#btnRepeat')?.addEventListener('click', () => { isRepeat = !isRepeat; $('#btnRepeat').classList.toggle('active', isRepeat); showToast(isRepeat ? 'Repeat on' : 'Repeat off'); });
+    $('#btnShuffle')?.addEventListener('click', () => { isShuffle = !isShuffle; pushModes(); $('#btnShuffle').classList.toggle('active', isShuffle); showToast(isShuffle ? 'Shuffle on' : 'Shuffle off'); });
+    $('#btnRepeat')?.addEventListener('click', () => { isRepeat = !isRepeat; pushModes(); $('#btnRepeat').classList.toggle('active', isRepeat); showToast(isRepeat ? 'Repeat on' : 'Repeat off'); });
 
     async function refreshLibrary() {
         try { const r = await fetch('/api/library'); library = await r.json(); } catch { library = []; }
+        pushQueue();
+        if (currentSong) currentSongIndex = library.findIndex(x => x.filename === currentSong.filename);
         libraryBadge.textContent = library.length > 0 ? library.length : '';
         if (!library.length) { libraryList.innerHTML = '<div class="library-empty">No songs yet.<br>Search & download!</div>'; return; }
         if (libraryIndex >= library.length) libraryIndex = library.length - 1;
@@ -560,7 +595,7 @@
         try {
             const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: fn }) });
             const d = await r.json();
-            if (d.success) { if (currentSong?.filename === fn) { audio.pause(); audio.src = ''; currentSong = null; currentSongIndex = -1; isPlaying = false; } showToast('Deleted', 'success'); await refreshLibrary(); }
+            if (d.success) { if (currentSong?.filename === fn) { if (native) native.stopIfPlaying(fn); else { audio.pause(); audio.src = ''; } currentSong = null; currentSongIndex = -1; isPlaying = false; } showToast('Deleted', 'success'); await refreshLibrary(); }
         } catch { showToast('Delete failed', 'error'); }
     }
 
@@ -745,8 +780,8 @@
     function playSong(fn, title, navigate = true) {
         currentSong = { filename: fn, title };
         currentSongIndex = library.findIndex(s => s.filename === fn);
-        audio.src = '/api/music/' + encodeURIComponent(fn);
-        audio.play().catch(() => { });
+        if (native) { native.play(fn, title); nativeState.filename = fn; nativeState.positionMs = 0; nativeState.durationMs = 0; nativeState.playing = true; }
+        else { audio.src = '/api/music/' + encodeURIComponent(fn); audio.play().catch(() => { }); }
         isPlaying = true;
         if (navigate) showView('nowplaying');
         updateNowPlaying();
@@ -766,17 +801,18 @@
             clearArtwork();
         }
         updateMediaSession();
-        pushNativeState();
     }
 
     function togglePlay() {
         if (!currentSong) { if (library.length) playSong(library[0].filename, library[0].title, false); return; }
-        if (isPlaying) { audio.pause(); isPlaying = false; } else { audio.play().catch(() => { }); isPlaying = true; }
+        if (native) { native.toggle(); isPlaying = !isPlaying; nativeState.playing = isPlaying; }
+        else if (isPlaying) { audio.pause(); isPlaying = false; } else { audio.play().catch(() => { }); isPlaying = true; }
         updateNowPlaying(); refreshLibrary();
     }
 
     function nextTrack() {
         if (!library.length) return;
+        if (native) { native.next(); setTimeout(syncNative, 150); return; }
         if (isShuffle) currentSongIndex = Math.floor(Math.random() * library.length);
         else currentSongIndex = (currentSongIndex + 1) % library.length;
         playSong(library[currentSongIndex].filename, library[currentSongIndex].title, false);
@@ -812,6 +848,9 @@
     }
 
 
+    let lastBatchScrollIdx = -1;
+    let lastTrackScrollIdx = -1;
+
     function renderBatches() {
         let html = '';
 
@@ -825,12 +864,12 @@
             </div>`;
         }
 
-        // Show batch imports
+        // Show batch imports. batchesIndex indexes `batches` itself; the
+        // single-song row above is not selectable, so no offset is applied.
         if (batches.length) {
             html += batches.map((b, i) => {
                 const pct = b.totalTracks > 0 ? (b.completedCount / b.totalTracks * 100).toFixed(0) : 0;
-                const adjustedIdx = activeDownloadTaskId ? i + 1 : i;
-                return `<div class="batch-item ${adjustedIdx === batchesIndex ? 'selected' : ''}" data-id="${b.id}">
+                return `<div class="batch-item ${i === batchesIndex ? 'selected' : ''}" data-id="${b.id}" data-i="${i}">
                     <div class="batch-item-info">
                         <div class="batch-item-title">Batch ${b.id.substring(0, 8)}</div>
                         <div class="batch-item-meta"><span>${b.state}</span><span>${b.completedCount}/${b.totalTracks} songs</span></div>
@@ -845,10 +884,18 @@
             html = '<div class="library-empty">No active downloads.</div>';
         }
 
-        $('#batchList').innerHTML = html;
-        // Scroll selected batch into view
-        const selBatch = $('#batchList .batch-item.selected');
-        if (selBatch) selBatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        // The list is polled every 2 s. Rebuilding identical markup would
+        // replace the nodes under a finger mid-tap and swallow the click.
+        const listEl = $('#batchList');
+        if (listEl._html !== html) {
+            listEl._html = html;
+            listEl.innerHTML = html;
+        }
+        if (batchesIndex !== lastBatchScrollIdx) {
+            lastBatchScrollIdx = batchesIndex;
+            const selBatch = $('#batchList .batch-item.selected');
+            if (selBatch) selBatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
     }
 
 
@@ -865,16 +912,25 @@
     }
 
     function renderBatchTracks() {
-        $('#batchTrackList').innerHTML = batchTracks.map((t, i) => {
+        const html = batchTracks.map((t, i) => {
             const sc = 'status-' + t.status.toLowerCase().replace(/_/g, '-');
-            return `<div class="track-item ${i === batchTracksIndex ? 'selected' : ''}" data-id="${t.id}">
+            return `<div class="track-item ${i === batchTracksIndex ? 'selected' : ''}" data-id="${t.id}" data-i="${i}">
                 <div class="track-thumb"></div>
                 <div class="track-info"><div class="track-title">${escH(t.title)}</div><div class="track-status-pill ${sc}">${t.status}</div></div>
             </div>`;
         }).join('');
-        // Scroll selected track into view
-        const selTrack = $('#batchTrackList .track-item.selected');
-        if (selTrack) selTrack.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        // Polled every second: only touch the DOM when something changed, or a
+        // tap landing between two polls is lost with the node it hit.
+        const listEl = $('#batchTrackList');
+        if (listEl._html !== html) {
+            listEl._html = html;
+            listEl.innerHTML = html;
+        }
+        if (batchTracksIndex !== lastTrackScrollIdx) {
+            lastTrackScrollIdx = batchTracksIndex;
+            const selTrack = $('#batchTrackList .track-item.selected');
+            if (selTrack) selTrack.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
     }
 
     function batchesUp() { batchesIndex = Math.max(0, batchesIndex - 1); renderBatches(); }
@@ -894,43 +950,73 @@
         if (!t) return;
         if (t.status === 'MATCHED_LOW_CONFIDENCE') {
             activeTrackId = t.id;
-            $('#actionMenuHeader').textContent = t.title.substring(0, 15) + (t.title.length > 15 ? '...' : '');
+            const pct = t.matchConfidence != null ? ' · ' + Math.round(t.matchConfidence * 100) + '%' : '';
+            $('#actionMenuHeader').textContent = t.title.substring(0, 18) + (t.title.length > 18 ? '...' : '') + pct;
             showView('actionMenu');
+        } else if (t.status === 'FAILED') {
+            showToast(t.errorCode || 'This track failed', 'error');
         }
     }
+
+    // ─── Touch input ────────────────────────────────────────────────
+    // The lists below are navigated with the wheel, but a phone user taps.
+    // Delegated from the (stable) container so re-rendered rows still work.
+    function indexOfRow(e, rowSel) {
+        const row = e.target.closest(rowSel);
+        return row ? [...row.parentElement.children].filter(c => c.matches(rowSel)).indexOf(row) : -1;
+    }
+    $('#viewMenu').addEventListener('click', e => {
+        const i = indexOfRow(e, '.menu-item');
+        if (i < 0) return;
+        menuIndex = i; updateAllMenuSels(); menuSelect();
+    });
+    $('#viewActionMenu').addEventListener('click', e => {
+        const i = indexOfRow(e, '.menu-item');
+        if (i < 0) return;
+        actionMenuIndex = i; updateAllMenuSels(); actionMenuSelect();
+    });
+    $('#batchList').addEventListener('click', e => {
+        const row = e.target.closest('.batch-item[data-i]');
+        if (!row) return;
+        batchesIndex = +row.dataset.i; batchesSelect();
+    });
+    $('#batchTrackList').addEventListener('click', e => {
+        const row = e.target.closest('.track-item[data-i]');
+        if (!row) return;
+        batchTracksIndex = +row.dataset.i; renderBatchTracks(); tracksSelect();
+    });
 
     $('#importSubmitBtn').addEventListener('click', submitImport);
     $('#importInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitImport(); });
 
     function prevTrack() {
+        if (native) { native.prev(); setTimeout(syncNative, 150); return; }
         if (audio.currentTime > 3) { audio.currentTime = 0; return; }
         if (!library.length) return;
         currentSongIndex = (currentSongIndex - 1 + library.length) % library.length;
         playSong(library[currentSongIndex].filename, library[currentSongIndex].title, false);
     }
 
-    audio.addEventListener('timeupdate', () => {
-        if (!audio.duration) return;
-        const pct = (audio.currentTime / audio.duration) * 100;
+    function renderProgress() {
+        const dur = getDur();
+        if (!dur) return;
+        const pos = getPos();
+        const pct = (pos / dur) * 100;
         npProgressFill.style.width = pct + '%';
         if (npProgressKnob) npProgressKnob.style.left = pct + '%';
-        npTimeElapsed.textContent = fmt(audio.currentTime);
-        npTimeTotal.textContent = '-' + fmt(audio.duration - audio.currentTime);
-
-        // Keep the lockscreen scrubber roughly in step without spamming the
-        // bridge on every timeupdate.
-        const now = Date.now();
-        if (now - lastNativePush > 1000) { lastNativePush = now; pushNativeState(); }
-    });
+        npTimeElapsed.textContent = fmt(pos);
+        npTimeTotal.textContent = '-' + fmt(dur - pos);
+    }
+    audio.addEventListener('timeupdate', renderProgress);
 
     audio.addEventListener('ended', () => { isPlaying = false; if (isRepeat) { audio.currentTime = 0; audio.play().catch(() => { }); isPlaying = true; updateNowPlaying(); } else nextTrack(); });
     audio.addEventListener('play', () => { isPlaying = true; updateNowPlaying(); });
     audio.addEventListener('pause', () => { isPlaying = false; updateNowPlaying(); });
 
     $('#npProgressBar')?.addEventListener('click', e => {
-        if (!audio.duration) return;
+        if (!getDur()) return;
         const r = e.currentTarget.getBoundingClientRect();
-        audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+        seekTo(((e.clientX - r.left) / r.width) * getDur());
     });
 
     const btnHaptic = () => { if (navigator.vibrate) navigator.vibrate(12); };
@@ -984,24 +1070,29 @@
         else if (currentView === 'library') { dir > 0 ? libDown() : libUp(); }
         else if (currentView === 'batches') { dir > 0 ? batchesDown() : batchesUp(); }
         else if (currentView === 'batchDetail') { dir > 0 ? tracksDown() : tracksUp(); }
+        else if (currentView === 'actionMenu') { dir > 0 ? menuDown() : menuUp(); }
         else if (currentView === 'nowplaying') {
-            if (audio.duration) {
-                audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + dir * 5));
-                showToast(fmt(audio.currentTime) + ' / ' + fmt(audio.duration));
+            if (getDur()) {
+                seekTo(Math.max(0, Math.min(getDur(), getPos() + dir * 5)));
+                showToast(fmt(getPos()) + ' / ' + fmt(getDur()));
             }
         }
     }
 
     document.addEventListener('keydown', e => {
-        if (document.activeElement === searchInput && e.key !== 'Escape') return;
+        // Any text field owns its own keys. Only searchInput used to be
+        // exempt, so Backspace in the import field navigated away and Space
+        // toggled playback instead of typing.
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
         switch (e.key) {
             case 'ArrowUp': e.preventDefault(); handleScroll(-1); break;
             case 'ArrowDown': e.preventDefault(); handleScroll(1); break;
             case 'ArrowLeft': e.preventDefault(); prevTrack(); break;
             case 'ArrowRight': e.preventDefault(); nextTrack(); break;
-            case 'Enter': e.preventDefault(); if (currentView === 'menu') menuSelect(); else if (currentView === 'library') libSelect(); else if (currentView === 'batches') batchesSelect(); else if (currentView === 'batchDetail') tracksSelect(); break;
-            case 'Escape': case 'Backspace': if (document.activeElement !== searchInput) { e.preventDefault(); goBack(); } break;
-            case ' ': if (document.activeElement !== searchInput) { e.preventDefault(); togglePlay(); } break;
+            case 'Enter': e.preventDefault(); if (currentView === 'menu') menuSelect(); else if (currentView === 'library') libSelect(); else if (currentView === 'batches') batchesSelect(); else if (currentView === 'batchDetail') tracksSelect(); else if (currentView === 'actionMenu') actionMenuSelect(); break;
+            case 'Escape': case 'Backspace': e.preventDefault(); goBack(); break;
+            case ' ': e.preventDefault(); togglePlay(); break;
             case 'Delete': if (currentView === 'library' && library[libraryIndex]) { e.preventDefault(); deleteSong(library[libraryIndex].filename); } break;
         }
     });
@@ -1012,4 +1103,5 @@
 
     showView('menu', false);
     refreshLibrary();
+    startNativePolling();
 })();

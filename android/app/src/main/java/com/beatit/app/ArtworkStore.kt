@@ -69,20 +69,13 @@ object ArtworkStore {
         val dest = artFile(musicDir, audioName)
         val tmp = File(dest.absolutePath + ".tmp")
         return try {
-            val response = http.newCall(Request.Builder().url(url).build()).execute()
-            response.use {
-                if (!it.isSuccessful) {
-                    Log.w(TAG, "Art fetch failed HTTP ${it.code} for $audioName")
-                    return false
-                }
-                val body = it.body ?: return false
-                if (body.contentLength() > MAX_BYTES) {
-                    Log.w(TAG, "Art too large (${body.contentLength()}) for $audioName")
-                    return false
-                }
-                tmp.outputStream().use { out -> body.byteStream().copyTo(out) }
+            // Best candidate first; a marker may expand to several sizes.
+            val candidates = resolveCandidates(url)
+            var saved = false
+            for (candidate in candidates) {
+                if (fetchTo(candidate, tmp, audioName)) { saved = true; break }
             }
-            if (tmp.length() == 0L) {
+            if (!saved) {
                 tmp.delete()
                 return false
             }
@@ -95,6 +88,57 @@ object ArtworkStore {
             tmp.delete()
             false
         }
+    }
+
+    private fun fetchTo(url: String, tmp: File, audioName: String): Boolean = try {
+        http.newCall(Request.Builder().url(url).build()).execute().use {
+            if (!it.isSuccessful) {
+                Log.w(TAG, "Art fetch failed HTTP ${it.code} for $audioName")
+                return false
+            }
+            val body = it.body ?: return false
+            if (body.contentLength() > MAX_BYTES) {
+                Log.w(TAG, "Art too large (${body.contentLength()}) for $audioName")
+                return false
+            }
+            tmp.outputStream().use { out -> body.byteStream().copyTo(out) }
+        }
+        tmp.length() > 0L
+    } catch (e: Exception) {
+        Log.w(TAG, "Art fetch failed for $audioName: ${e.message}")
+        false
+    }
+
+    // ── Spotify per-track art ───────────────────────────────────────
+
+    private const val SPOTIFY_OEMBED = "https://open.spotify.com/oembed?url="
+
+    /** A stand-in for "this track's own album art", resolved at save time. */
+    fun spotifyTrackArtMarker(trackUri: String) = SPOTIFY_OEMBED + trackUri
+
+    /**
+     * Real image URLs to try, best first. A plain URL is returned as-is.
+     * A Spotify marker is resolved through the public oEmbed endpoint, which
+     * answers with the track's album art at 300px; the same image exists at
+     * 640px under a different size prefix, so try that first and keep the
+     * 300px URL as the fallback.
+     */
+    private fun resolveCandidates(url: String): List<String> {
+        if (!url.startsWith(SPOTIFY_OEMBED)) return listOf(url)
+        val thumb = try {
+            http.newCall(Request.Builder().url(url).build()).execute().use {
+                if (!it.isSuccessful) return emptyList()
+                val json = it.body?.string() ?: return emptyList()
+                com.google.gson.JsonParser.parseString(json).asJsonObject
+                    .get("thumbnail_url")?.asString
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "oEmbed lookup failed: ${e.message}")
+            null
+        } ?: return emptyList()
+
+        val large = thumb.replace("ab67616d00001e02", "ab67616d0000b273")
+        return if (large != thumb) listOf(large, thumb) else listOf(thumb)
     }
 
     /**

@@ -139,11 +139,23 @@ object SpotifyClient {
             val durationMs = obj.get("duration")?.asLong ?: 0
             val durationSec = if (durationMs > 0) (durationMs / 1000).toInt() else null
 
+            // An album's cover is every track's cover. A playlist's cover is
+            // not: it is a collage or a mood image, and using it for each song
+            // is what made imported tracks all look alike. The embed page
+            // carries no per-track art for playlists, so hand over a marker
+            // that ArtworkStore resolves to the track's own album art when the
+            // download finishes — one request per track, only for tracks that
+            // actually download, and off the import request's critical path.
+            val art = if (type == SpotifyType.ALBUM) coverUrl else
+                obj.get("uri")?.asString
+                    ?.takeIf { it.startsWith("spotify:track:") }
+                    ?.let { ArtworkStore.spotifyTrackArtMarker(it) }
+
             tracks.add(TrackCandidate(
                 title = title,
                 artist = artist,
                 durationSeconds = durationSec,
-                thumbnailUrl = coverUrl,
+                thumbnailUrl = art,
                 sourcePlatform = SourcePlatform.SPOTIFY
             ))
         }

@@ -183,11 +183,10 @@ class MainActivity : Activity() {
         webView.isFocusableInTouchMode = true
         webView.requestFocus()
 
-        // Lockscreen / notification transport controls. Registered before the
-        // first loadUrl so the page always sees it, including on the
+        // Remote control for the native player. Registered before the first
+        // loadUrl so the page always sees it, including on the
         // onReceivedError reload path.
-        webView.addJavascriptInterface(MediaBridge(), "AndroidMedia")
-        PlaybackSession.attachWebView(webView)
+        webView.addJavascriptInterface(MediaBridge(), "AndroidPlayer")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
@@ -249,7 +248,6 @@ class MainActivity : Activity() {
                 val dead = view ?: return true
                 if (dead !== webView) return true  // stale client on a discarded view
 
-                PlaybackSession.detachWebView()
                 (dead.parent as? ViewGroup)?.removeView(dead)
                 dead.destroy()
 
@@ -276,21 +274,26 @@ class MainActivity : Activity() {
         webView.webChromeClient = WebChromeClient()
     }
 
+    /**
+     * The page is a single-document app that never touches browser history, so
+     * webView.canGoBack() is always false and Back used to leave the app from
+     * every screen. Ask the page to step back itself; at the top level, send
+     * the app to the background instead of finishing it, because finishing
+     * destroys the WebView and with it the music.
+     */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (!isFinishing && webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+        if (isFinishing) return
+        webView.evaluateJavascript(
+            "(window.BeatItRemote && window.BeatItRemote.back && window.BeatItRemote.back())"
+        ) { handled ->
+            if (handled != "true") moveTaskToBack(true)
         }
     }
 
     // Don't stop the service on destroy — let it keep running for downloads.
-    // Playback does go away with the WebView though (the <audio> element lives
-    // in the page), so hand back the session rather than leaving a media
-    // notification whose buttons would no-op.
+    // Playback is owned by the service (NativePlayer), so it carries on.
     override fun onDestroy() {
-        PlaybackSession.detachWebView()
         super.onDestroy()
     }
 
